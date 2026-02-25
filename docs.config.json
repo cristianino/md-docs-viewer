@@ -1,0 +1,20 @@
+[
+  {
+    "id": "introduccion",
+    "file": "docs/01-introduccion.md",
+    "title": "Introducción",
+    "subtitle": "Descripción general del proyecto"
+  },
+  {
+    "id": "guia",
+    "file": "docs/02-guia.md",
+    "title": "Guía de uso",
+    "subtitle": "Instrucciones paso a paso"
+  },
+  {
+    "id": "referencia",
+    "file": "docs/03-referencia.md",
+    "title": "Referencia técnica",
+    "subtitle": "Diagramas, tablas y ejemplos"
+  }
+]
