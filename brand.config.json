@@ -3,5 +3,6 @@
   "accentColor": "#746ccb",
   "companyName": "Mi Empresa",
   "docsTitle": "Documentación",
-  "docsYear": "2026"
+  "docsYear": "2026",
+  "poweredBy": false
 }

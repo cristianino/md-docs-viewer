@@ -2,6 +2,7 @@ import express from 'express';
 import { marked } from 'marked';
 import fs from 'fs';
 import path from 'path';
+import puppeteer from 'puppeteer';
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT) : 3000;
@@ -15,6 +16,7 @@ interface BrandConfig {
   companyName: string;
   docsTitle: string;
   docsYear: string;
+  poweredBy?: boolean;
 }
 
 interface Doc {
@@ -173,6 +175,27 @@ function renderPage(activeDoc: Doc, htmlContent: string): string {
       opacity: 0.6;
       margin-top: 3px;
     }
+
+    /* ── PDF BUTTON ── */
+    .sidebar-pdf {
+      padding: 0 10px 14px;
+    }
+
+    .pdf-btn {
+      display: block;
+      padding: 11px 14px;
+      background: ${accentColor};
+      color: #ffffff;
+      border-radius: 8px;
+      text-align: center;
+      text-decoration: none;
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      transition: opacity 0.15s;
+    }
+    .pdf-btn:hover { opacity: 0.85; }
+    .pdf-btn.loading { opacity: 0.6; pointer-events: none; }
 
     .sidebar-footer {
       padding: 14px 22px;
@@ -376,6 +399,9 @@ function renderPage(activeDoc: Doc, htmlContent: string): string {
       <div class="nav-section-label">Documentos</div>
       ${navItems}
     </nav>
+    <div class="sidebar-pdf">
+      <a href="/pdf" class="pdf-btn" id="pdfBtn">Descargar PDF</a>
+    </div>
     <div class="sidebar-footer">
       <div>${companyName} &mdash; ${docsYear}</div>
       <div style="margin-top:6px;">Powered by <a href="https://laratec.co/" target="_blank" rel="noopener">Laratec SAS</a></div>
@@ -398,6 +424,19 @@ function renderPage(activeDoc: Doc, htmlContent: string): string {
     });
 
     document.addEventListener('DOMContentLoaded', function () {
+      // Botón PDF: feedback visual mientras genera
+      var pdfBtn = document.getElementById('pdfBtn');
+      if (pdfBtn) {
+        pdfBtn.addEventListener('click', function () {
+          pdfBtn.textContent = 'Generando…';
+          pdfBtn.classList.add('loading');
+          setTimeout(function () {
+            pdfBtn.textContent = 'Descargar PDF';
+            pdfBtn.classList.remove('loading');
+          }, 30000);
+        });
+      }
+
       // Convierte bloques de código mermaid en divs renderizables
       document.querySelectorAll('pre code.language-mermaid').forEach(function (block) {
         var pre = block.parentElement;
@@ -443,6 +482,318 @@ app.get('/doc/:id', (req, res) => {
     res.send(renderPage(doc, htmlContent));
   } catch {
     res.status(500).send('<h1>Error al leer el documento</h1>');
+  }
+});
+
+// ── Página de impresión (portada + índice + todos los docs) ──────────────────
+
+function renderPrintPage(): string {
+  const { primaryColor, accentColor, companyName, docsTitle, docsYear, poweredBy = true } = brand;
+  const accentFaint = hexToRgba(accentColor, 0.08);
+  const date = new Date().toLocaleDateString('es-ES', {
+    year: 'numeric', month: 'long', day: 'numeric',
+  });
+
+  const tocItems = docs.map((doc, i) => `
+    <div class="toc-item">
+      <span class="toc-num">${String(i + 1).padStart(2, '0')}</span>
+      <div class="toc-info">
+        <span class="toc-title">${doc.title}</span>
+        <span class="toc-subtitle">${doc.subtitle}</span>
+      </div>
+    </div>`).join('');
+
+  const sections = docs.map((doc) => {
+    let htmlContent = '<p><em>Error al cargar el documento.</em></p>';
+    try {
+      const md = fs.readFileSync(path.join(ROOT, doc.file), 'utf-8');
+      htmlContent = marked.parse(md) as string;
+    } catch { /* noop */ }
+    return `
+    <section class="doc-section">
+      <div class="doc-header">
+        <div class="doc-header-title">${doc.title}</div>
+        <div class="doc-header-subtitle">${doc.subtitle}</div>
+      </div>
+      <div class="content">${htmlContent}</div>
+    </section>`;
+  }).join('');
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>${companyName} — ${docsTitle}</title>
+  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Arial, sans-serif;
+      color: #2d3748;
+      background: #ffffff;
+      font-size: 13.5px;
+      line-height: 1.65;
+    }
+
+    /* ── PORTADA ── */
+    .cover {
+      height: 247mm; /* A4 (297mm) - márgenes top/bottom (25mm c/u) */
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+      break-after: page;
+      padding: 40px;
+    }
+    .cover-logo { margin-bottom: 44px; }
+    .cover-logo img { max-height: 90px; width: auto; }
+    .cover-company {
+      font-size: 2rem;
+      font-weight: 800;
+      color: ${primaryColor};
+      margin-bottom: 10px;
+    }
+    .cover-title {
+      font-size: 1.2rem;
+      font-weight: 400;
+      color: #4a5568;
+      margin-bottom: 36px;
+    }
+    .cover-line {
+      width: 72px;
+      height: 4px;
+      background: ${accentColor};
+      border-radius: 2px;
+      margin: 0 auto 36px;
+    }
+    .cover-date { font-size: 0.85rem; color: #718096; margin-bottom: 12px; }
+    .cover-powered { font-size: 0.8rem; color: #a0aec0; }
+    .cover-powered a { color: ${accentColor}; text-decoration: none; }
+
+    /* ── ÍNDICE ── */
+    .toc-page {
+      break-before: page;
+      break-after: page;
+      padding: 10px 0;
+    }
+    .toc-heading {
+      font-size: 1.5rem;
+      font-weight: 800;
+      color: ${primaryColor};
+      border-bottom: 3px solid ${accentColor};
+      padding-bottom: 12px;
+      margin-bottom: 28px;
+    }
+    .toc-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 18px;
+      padding: 14px 0;
+      border-bottom: 1px solid #edf2f7;
+    }
+    .toc-item:last-child { border-bottom: none; }
+    .toc-num {
+      font-size: 1.4rem;
+      font-weight: 800;
+      color: ${accentColor};
+      min-width: 34px;
+      line-height: 1;
+      padding-top: 2px;
+    }
+    .toc-info { display: flex; flex-direction: column; gap: 3px; }
+    .toc-title { font-size: 0.95rem; font-weight: 700; color: ${primaryColor}; }
+    .toc-subtitle { font-size: 0.82rem; color: #718096; }
+
+    /* ── SECCIONES DE DOCUMENTO ── */
+    .doc-section { break-before: page; }
+    .doc-header {
+      background: ${primaryColor};
+      color: #ffffff;
+      padding: 20px 28px;
+      margin-bottom: 30px;
+    }
+    .doc-header-title { font-size: 1.3rem; font-weight: 800; margin-bottom: 4px; }
+    .doc-header-subtitle { font-size: 0.88rem; opacity: 0.7; }
+
+    /* ── TIPOGRAFÍA DE CONTENIDO ── */
+    .content h1 {
+      font-size: 1.6rem; font-weight: 800; color: ${primaryColor};
+      padding-bottom: 11px; border-bottom: 3px solid ${accentColor};
+      margin: 24px 0 10px; line-height: 1.25;
+    }
+    .content h1:first-child { margin-top: 0; }
+    .content h2 {
+      font-size: 1.15rem; font-weight: 700; color: ${primaryColor};
+      margin: 30px 0 11px; padding-bottom: 7px; border-bottom: 1px solid #e2e8f0;
+    }
+    .content h3 {
+      font-size: 1.02rem; font-weight: 700; color: #2d3748;
+      margin: 20px 0 7px;
+    }
+    .content h4 {
+      font-size: 0.95rem; font-weight: 600; color: #4a5568;
+      margin: 14px 0 5px;
+    }
+    .content p { line-height: 1.75; color: #4a5568; margin-bottom: 11px; }
+    .content strong { color: #2d3748; font-weight: 700; }
+    .content em { color: #718096; }
+    .content a { color: ${accentColor}; text-decoration: none; }
+    .content ul, .content ol { padding-left: 24px; margin-bottom: 11px; }
+    .content li { line-height: 1.7; color: #4a5568; margin-bottom: 3px; }
+    .content li p { margin-bottom: 3px; }
+    .content hr { border: none; border-top: 2px solid #e2e8f0; margin: 26px 0; }
+
+    .content blockquote {
+      border-left: 4px solid ${accentColor};
+      background: ${accentFaint};
+      padding: 11px 15px;
+      border-radius: 0 6px 6px 0;
+      margin: 14px 0;
+      color: #4a5568;
+      font-size: 13px;
+      break-inside: avoid;
+    }
+    .content blockquote p { margin-bottom: 0; }
+
+    .content table {
+      width: 100%; border-collapse: collapse;
+      margin: 16px 0; font-size: 12px;
+      break-inside: avoid;
+    }
+    .content th {
+      background: ${primaryColor}; color: #ffffff;
+      padding: 8px 11px; text-align: left;
+      font-size: 10px; font-weight: 700;
+      text-transform: uppercase; letter-spacing: 0.05em;
+    }
+    .content td {
+      padding: 8px 11px; border-bottom: 1px solid #edf2f7;
+      color: #4a5568; vertical-align: top;
+    }
+    .content tr:last-child td { border-bottom: none; }
+    .content tr:nth-child(even) td { background: #f7fafc; }
+
+    .content code {
+      font-family: 'Cascadia Code', 'Fira Code', Consolas, monospace;
+      font-size: 11.5px; background: #edf2f7;
+      color: ${accentColor}; padding: 2px 5px; border-radius: 3px;
+    }
+    .content pre {
+      background: #1a202c; border-radius: 7px;
+      padding: 17px; overflow-x: auto;
+      margin: 12px 0; break-inside: avoid;
+    }
+    .content pre code {
+      background: none; color: #e2e8f0;
+      padding: 0; font-size: 12px; line-height: 1.6;
+    }
+
+    .mermaid {
+      background: #ffffff; border: 1px solid #e2e8f0;
+      border-radius: 8px; padding: 22px 14px;
+      margin: 14px 0; text-align: center; break-inside: avoid;
+    }
+    .content input[type="checkbox"] { margin-right: 5px; }
+  </style>
+</head>
+<body>
+
+  <!-- PORTADA -->
+  <div class="cover">
+    <div class="cover-logo"><img src="/logo.svg" alt="${companyName}" /></div>
+    <div class="cover-company">${companyName}</div>
+    <div class="cover-title">${docsTitle}</div>
+    <div class="cover-line"></div>
+    <div class="cover-date">${date}</div>
+    ${poweredBy !== false ? `<div class="cover-powered">Powered by <a href="https://laratec.co/">Laratec SAS</a></div>` : ''}
+  </div>
+
+  <!-- ÍNDICE -->
+  <div class="toc-page">
+    <h1 class="toc-heading">Índice</h1>
+    ${tocItems}
+  </div>
+
+  <!-- DOCUMENTOS -->
+  ${sections}
+
+  <script>
+    mermaid.initialize({
+      startOnLoad: false, theme: 'neutral',
+      securityLevel: 'loose',
+      flowchart: { useMaxWidth: true, htmlLabels: true },
+      sequence: { useMaxWidth: true }
+    });
+    document.addEventListener('DOMContentLoaded', async function () {
+      document.querySelectorAll('pre code.language-mermaid').forEach(function (block) {
+        var pre = block.parentElement;
+        var div = document.createElement('div');
+        div.className = 'mermaid';
+        div.textContent = block.textContent || '';
+        if (pre && pre.parentNode) pre.parentNode.replaceChild(div, pre);
+      });
+      await mermaid.run();
+      window.__mermaidDone = true;
+    });
+  </script>
+</body>
+</html>`;
+}
+
+// ── Rutas: print y PDF ────────────────────────────────────────────────────────
+
+app.get('/print', (_req, res) => {
+  res.send(renderPrintPage());
+});
+
+app.get('/pdf', async (req, res) => {
+  let browser;
+  try {
+    browser = await puppeteer.launch({
+      headless: true,
+      args: ['--no-sandbox', '--disable-setuid-sandbox'],
+    });
+
+    const page = await browser.newPage();
+    await page.goto(`http://localhost:${PORT}/print`, {
+      waitUntil: 'networkidle0',
+      timeout: 30000,
+    });
+
+    // Esperar a que Mermaid termine de renderizar
+    await page.waitForFunction('window.__mermaidDone === true', { timeout: 10000 })
+      .catch(() => { /* si no hay diagramas, ignorar timeout */ });
+
+    const slug = `${brand.companyName} ${brand.docsTitle}`
+      .toLowerCase()
+      .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+      .replace(/[^a-z0-9]+/g, '-')
+      .replace(/^-+|-+$/g, '');
+    const dateStr = new Date().toISOString().slice(0, 10);
+    const filename = `${slug}-${dateStr}.pdf`;
+
+    const pdfBuffer = await page.pdf({
+      format: 'A4',
+      printBackground: true,
+      margin: { top: '25mm', right: '20mm', bottom: '25mm', left: '20mm' },
+      displayHeaderFooter: true,
+      headerTemplate: `<div style="font-family:Arial,sans-serif;font-size:8px;color:#a0aec0;width:100%;padding:0 20mm;text-align:right;box-sizing:border-box;">${brand.companyName} &mdash; ${brand.docsTitle}</div>`,
+      footerTemplate: brand.poweredBy !== false
+        ? `<div style="font-family:Arial,sans-serif;font-size:8px;color:#a0aec0;width:100%;padding:0 20mm;display:flex;justify-content:space-between;box-sizing:border-box;"><span>Powered by Laratec SAS</span><span><span class="pageNumber"></span> / <span class="totalPages"></span></span></div>`
+        : `<div style="font-family:Arial,sans-serif;font-size:8px;color:#a0aec0;width:100%;padding:0 20mm;text-align:right;box-sizing:border-box;"><span class="pageNumber"></span> / <span class="totalPages"></span></div>`,
+    });
+
+    await browser.close();
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(Buffer.from(pdfBuffer));
+  } catch (err) {
+    if (browser) await browser.close().catch(() => {});
+    console.error('  Error al generar PDF:', err);
+    res.status(500).send('<h1>Error al generar el PDF</h1><p>Revisa la consola del servidor.</p>');
   }
 });
 
