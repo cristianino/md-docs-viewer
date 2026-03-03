@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{.ActiveDoc.Title}} — {{.Brand.DocsTitle}}</title>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f7fafc; color: #2d3748; }
+
+/* Sidebar */
+.sidebar {
+  position: fixed; top: 0; left: 0; width: 268px; height: 100vh;
+  background: {{.Brand.PrimaryColor}};
+  display: flex; flex-direction: column; overflow-y: auto; z-index: 100;
+}
+.sidebar::-webkit-scrollbar { width: 4px; }
+.sidebar::-webkit-scrollbar-track { background: transparent; }
+.sidebar::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 2px; }
+
+.sidebar-logo {
+  background: #fff; padding: 20px 24px 16px;
+  border-bottom: 1px solid rgba(0,0,0,0.08);
+}
+.sidebar-logo img { max-width: 100%; max-height: 48px; object-fit: contain; display: block; }
+.sidebar-logo .docs-title {
+  font-size: 11px; font-weight: 600; letter-spacing: 0.08em;
+  color: {{.Brand.PrimaryColor}}; text-transform: uppercase; margin-top: 10px;
+}
+
+.sidebar-nav { flex: 1; padding: 12px 0; }
+.nav-item {
+  display: block; padding: 10px 20px; color: rgba(255,255,255,0.75);
+  text-decoration: none; border-left: 3px solid transparent;
+  transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+.nav-item:hover { background: rgba(255,255,255,0.08); color: #fff; }
+.nav-item.active {
+  background: rgba(255,255,255,0.12); color: #fff;
+  border-left-color: {{.Brand.AccentColor}};
+}
+.nav-item-title { font-size: 13.5px; font-weight: 500; line-height: 1.3; }
+.nav-item-sub { font-size: 11.5px; opacity: 0.65; margin-top: 2px; }
+
+.sidebar-footer {
+  padding: 16px 20px;
+  border-top: 1px solid rgba(255,255,255,0.1);
+}
+.pdf-btn {
+  display: block; width: 100%; padding: 9px 14px; margin-bottom: 14px;
+  background: {{.Brand.AccentColor}}; color: #fff;
+  border: none; border-radius: 6px; cursor: pointer;
+  font-size: 13px; font-weight: 500; text-align: center; text-decoration: none;
+  transition: opacity 0.15s;
+}
+.pdf-btn:hover { opacity: 0.88; }
+.pdf-btn.loading { opacity: 0.6; cursor: not-allowed; }
+.footer-info { font-size: 11px; color: rgba(255,255,255,0.45); line-height: 1.5; }
+{{if .Brand.PoweredBy}}
+.footer-info a { color: rgba(255,255,255,0.55); }
+{{end}}
+
+/* Content */
+.content {
+  margin-left: 268px; min-height: 100vh;
+  padding: 48px 56px; max-width: calc(900px + 112px);
+}
+@media (max-width: 900px) { .content { padding: 24px 20px; } }
+
+/* Typography */
+.content h1 {
+  font-size: 2rem; font-weight: 700; color: {{.Brand.PrimaryColor}};
+  border-bottom: 3px solid {{.Brand.AccentColor}};
+  padding-bottom: 10px; margin-bottom: 20px; margin-top: 40px; line-height: 1.25;
+}
+.content h1:first-child { margin-top: 0; }
+.content h2 {
+  font-size: 1.35rem; font-weight: 600; color: {{.Brand.PrimaryColor}};
+  border-bottom: 1px solid #e2e8f0;
+  padding-bottom: 6px; margin-bottom: 14px; margin-top: 36px;
+}
+.content h3 { font-size: 1.1rem; font-weight: 600; color: #2d3748; margin: 28px 0 10px; }
+.content h4 { font-size: 1rem; font-weight: 600; color: #4a5568; margin: 22px 0 8px; }
+.content p { line-height: 1.8; color: #4a5568; margin-bottom: 16px; }
+.content a { color: {{.Brand.AccentColor}}; text-decoration: none; }
+.content a:hover { text-decoration: underline; }
+.content ul, .content ol { padding-left: 24px; margin-bottom: 16px; }
+.content li { line-height: 1.75; color: #4a5568; margin-bottom: 4px; }
+.content li input[type=checkbox] { accent-color: {{.Brand.AccentColor}}; }
+
+/* Code */
+.content code {
+  background: #edf2f7; padding: 2px 6px; border-radius: 4px;
+  font-family: 'JetBrains Mono','Fira Code',monospace; font-size: 0.875em; color: #2d3748;
+}
+.content pre {
+  background: #1a202c; padding: 20px; border-radius: 8px;
+  overflow-x: auto; margin-bottom: 20px;
+}
+.content pre code { background: none; color: #e2e8f0; padding: 0; font-size: 0.875rem; }
+
+/* Tables */
+.content table { width: 100%; border-collapse: collapse; margin-bottom: 24px; border-radius: 8px; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+.content th { background: {{.Brand.PrimaryColor}}; color: #fff; padding: 10px 14px; text-align: left; font-size: 13px; font-weight: 600; }
+.content td { padding: 10px 14px; border-bottom: 1px solid #e2e8f0; font-size: 14px; color: #4a5568; }
+.content tr:last-child td { border-bottom: none; }
+.content tr:nth-child(even) td { background: #f7fafc; }
+.content tr:hover td { background: {{.AccentFaint}}; }
+
+/* Blockquotes */
+.content blockquote {
+  border-left: 4px solid {{.Brand.AccentColor}};
+  background: {{.AccentFaint}}; padding: 12px 18px;
+  margin: 0 0 16px; border-radius: 0 6px 6px 0;
+}
+.content blockquote p { color: #4a5568; margin: 0; }
+
+/* Mermaid */
+.mermaid { background: #fff; padding: 20px; border-radius: 8px; overflow-x: auto; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.08); }
+
+/* Scrollbar */
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: rgba(0,0,0,0.2); border-radius: 3px; }
+</style>
+</head>
+<body>
+
+<aside class="sidebar">
+  <div class="sidebar-logo">
+    <img src="/logo.svg" alt="{{.Brand.CompanyName}}">
+    <div class="docs-title">{{.Brand.DocsTitle}}</div>
+  </div>
+  <nav class="sidebar-nav">
+    {{range .Docs}}
+    <a href="/doc/{{.ID}}" class="nav-item{{if eq .ID $.ActiveID}} active{{end}}">
+      <div class="nav-item-title">{{.Title}}</div>
+      <div class="nav-item-sub">{{.Subtitle}}</div>
+    </a>
+    {{end}}
+  </nav>
+  <div class="sidebar-footer">
+    <a href="/pdf" class="pdf-btn" id="pdf-btn">Descargar PDF</a>
+    <div class="footer-info">
+      {{.Brand.CompanyName}} &copy; {{.Brand.DocsYear}}
+      {{if .Brand.PoweredBy}}<br><a href="https://laratec.com.co" target="_blank">Powered by Laratec SAS</a>{{end}}
+    </div>
+  </div>
+</aside>
+
+<main class="content">
+  {{.Content}}
+</main>
+
+<script>
+mermaid.initialize({ startOnLoad: false, theme: 'default' });
+document.addEventListener('DOMContentLoaded', function() {
+  // PDF button feedback
+  var btn = document.getElementById('pdf-btn');
+  if (btn) {
+    btn.addEventListener('click', function() {
+      btn.classList.add('loading');
+      btn.textContent = 'Generando…';
+      setTimeout(function() {
+        btn.classList.remove('loading');
+        btn.textContent = 'Descargar PDF';
+      }, 30000);
+    });
+  }
+  // Mermaid: convertir pre>code.language-mermaid a div.mermaid
+  var blocks = document.querySelectorAll('pre code.language-mermaid');
+  blocks.forEach(function(code) {
+    var pre = code.parentElement;
+    var div = document.createElement('div');
+    div.className = 'mermaid';
+    div.textContent = code.textContent;
+    pre.parentNode.replaceChild(div, pre);
+  });
+  mermaid.run();
+});
+</script>
+</body>
+</html>

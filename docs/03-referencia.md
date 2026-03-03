@@ -11,13 +11,13 @@ Esta sección demuestra todas las funcionalidades de formato soportadas por el v
 ```mermaid
 flowchart TD
     A([Inicio]) --> B[Reemplazar logo.svg]
-    B --> C[npm run generate:styles]
+    B --> C[./mdocs generate-styles]
     C --> D{¿Colores correctos?}
     D -- Sí --> E[Editar docs.config.json]
     D -- No --> F[Ajustar brand.config.json]
     F --> E
     E --> G[Crear archivos .md]
-    G --> H[npm start]
+    G --> H[./mdocs serve]
     H --> I([Documentación lista])
 ```
 
@@ -26,7 +26,7 @@ flowchart TD
 ```mermaid
 sequenceDiagram
     participant B as Navegador
-    participant S as Servidor
+    participant S as Servidor Go
     participant F as Sistema de archivos
 
     B->>S: GET /doc/mi-documento
@@ -34,8 +34,8 @@ sequenceDiagram
     F-->>S: Lista de documentos
     S->>F: Lee docs/mi-documento.md
     F-->>S: Contenido Markdown
-    S->>S: Parsea Markdown → HTML
-    S->>S: Aplica estilos de brand.config.json
+    S->>S: goldmark: Markdown → HTML
+    S->>S: Aplica colores de brand.config.json
     S-->>B: Página HTML completa
 ```
 
@@ -49,7 +49,8 @@ sequenceDiagram
 | `accentColor` | `string` | Color de acento (links, bordes activos) | `"#0066cc"` |
 | `companyName` | `string` | Nombre de la empresa | `"Acme Corp"` |
 | `docsTitle` | `string` | Subtítulo bajo el logo | `"Portal de Docs"` |
-| `docsYear` | `string` | Año mostrado en el footer | `"2025"` |
+| `docsYear` | `string` | Año mostrado en el footer | `"2026"` |
+| `poweredBy` | `boolean` | Atribución en el PDF | `false` |
 
 ### Campos de docs.config.json
 
@@ -60,20 +61,32 @@ sequenceDiagram
 | `title` | `string` | Título mostrado en la barra lateral |
 | `subtitle` | `string` | Subtítulo descriptivo en la barra lateral |
 
+### Variables de entorno
+
+| Variable | Valor por defecto | Descripción |
+|---|---|---|
+| `PORT` | `3000` | Puerto en el que escucha el servidor |
+
 ## Bloques de código
 
 El visor soporta resaltado de código en múltiples lenguajes:
 
-```typescript
-// TypeScript
-interface Documento {
-  id: string;
-  titulo: string;
-  contenido: string;
+```go
+// Go
+type Doc struct {
+    ID       string `json:"id"`
+    File     string `json:"file"`
+    Title    string `json:"title"`
+    Subtitle string `json:"subtitle"`
 }
 
-function cargarDocumento(id: string): Documento {
-  return { id, titulo: 'Ejemplo', contenido: '' };
+func Load(path string) ([]*Doc, error) {
+    data, err := os.ReadFile(path)
+    if err != nil {
+        return nil, err
+    }
+    var docs []*Doc
+    return docs, json.Unmarshal(data, &docs)
 }
 ```
 
@@ -100,13 +113,7 @@ ORDER BY visitas DESC;
 
 > **Nota:** Los blockquotes son ideales para resaltar advertencias, tips o información importante. Se renderizan con el color de acento definido en `brand.config.json`.
 
-> **Advertencia:** Asegúrate de que `logo.svg` sea un SVG válido con colores en formato hexadecimal (`#rrggbb`) para que el script de extracción funcione correctamente.
-
-## Variables de entorno
-
-| Variable | Valor por defecto | Descripción |
-|---|---|---|
-| `PORT` | `3000` | Puerto en el que escucha el servidor |
+> **Advertencia:** Asegúrate de que `logo.svg` sea un SVG válido con colores en formato hexadecimal (`#rrggbb`) para que el subcomando `generate-styles` funcione correctamente.
 
 ---
 
@@ -114,17 +121,29 @@ ORDER BY visitas DESC;
 
 ```
 proyecto/
-├── src/
-│   └── server.ts          ← Servidor Express + renderizado
-├── scripts/
-│   └── generate-styles.ts ← Extracción de colores del logo
+├── main.go                    ← Entry point (llama a cmd/mdocs.Execute)
+├── go.mod / go.sum
+├── cmd/mdocs/
+│   ├── root.go                ← Cobra root command
+│   ├── serve.go               ← mdocs serve [--port]
+│   └── styles.go              ← mdocs generate-styles
+├── internal/
+│   ├── brand/
+│   │   ├── config.go          ← BrandConfig + HexToRGBA
+│   │   └── extract.go         ← Extracción de colores del SVG
+│   ├── docs/
+│   │   ├── config.go          ← Doc struct + Load()
+│   │   └── markdown.go        ← goldmark: Markdown → HTML
+│   └── server/
+│       ├── server.go          ← Rutas HTTP + pdfFilename
+│       ├── render.go          ← renderPage() + renderPrint()
+│       └── pdf.go             ← GeneratePDF() via chromedp
+├── templates/
+│   ├── page.gohtml            ← Template HTML del visor (sidebar + contenido)
+│   └── print.gohtml           ← Template HTML para PDF (portada + índice + docs)
 ├── docs/
-│   ├── 01-introduccion.md ← Tus archivos de contenido
-│   ├── 02-guia.md
-│   └── 03-referencia.md
-├── brand.config.json      ← Colores e identidad corporativa
-├── docs.config.json       ← Registro de documentos
-├── logo.svg               ← Logo de la empresa
-├── package.json
-└── tsconfig.json
+│   └── *.md                   ← Archivos de contenido
+├── brand.config.json
+├── docs.config.json
+└── logo.svg
 ```

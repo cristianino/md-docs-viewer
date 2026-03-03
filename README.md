@@ -12,12 +12,17 @@ Visor de documentación Markdown con identidad corporativa dinámica. Convierte 
 - Generación de PDF en un clic (portada + índice + documentos)
 - Configuración centralizada en dos archivos JSON
 
+## Requisitos
+
+- [Go 1.22+](https://go.dev/dl/)
+- [Chrome o Chromium](https://www.chromium.org/getting-involved/download-chromium/) (solo para generación de PDF)
+
 ## Inicio rápido
 
-### 1. Instalar dependencias
+### 1. Compilar el binario
 
 ```bash
-npm install
+go build -o mdocs .
 ```
 
 ### 2. Reemplazar el logo
@@ -27,7 +32,7 @@ Coloca el logo de tu empresa en la raíz del proyecto como `logo.svg`.
 ### 3. Extraer colores del logo
 
 ```bash
-npm run generate:styles
+./mdocs generate-styles
 ```
 
 Detecta automáticamente los colores de `logo.svg` y actualiza `brand.config.json`.
@@ -43,7 +48,7 @@ Edita `brand.config.json` para afinar nombre, título, año y atribución:
   "companyName": "Mi Empresa S.A.",
   "docsTitle": "Portal de Documentación",
   "docsYear": "2026",
-  "poweredBy": true
+  "poweredBy": false
 }
 ```
 
@@ -69,7 +74,7 @@ Agrega tus archivos `.md` en la carpeta `docs/`.
 ### 7. Iniciar el servidor
 
 ```bash
-npm start
+./mdocs serve
 ```
 
 Abre `http://localhost:3000` en tu navegador.
@@ -87,7 +92,7 @@ Abre `http://localhost:3000` en tu navegador.
 | `companyName` | `string` | Nombre de la empresa |
 | `docsTitle` | `string` | Subtítulo bajo el logo |
 | `docsYear` | `string` | Año mostrado en el footer |
-| `poweredBy` | `boolean` | Muestra "Powered by Laratec SAS" en el PDF (default: `true`) |
+| `poweredBy` | `boolean` | Muestra "Powered by Laratec SAS" en el PDF (default: `false`) |
 
 ### `docs.config.json`
 
@@ -100,17 +105,19 @@ Abre `http://localhost:3000` en tu navegador.
 
 ---
 
-## Scripts
+## Comandos
 
 | Comando | Descripción |
 |---|---|
-| `npm start` | Inicia el servidor en `http://localhost:3000` |
-| `npm run generate:styles` | Extrae colores de `logo.svg` y actualiza `brand.config.json` |
+| `./mdocs serve` | Inicia el servidor en `http://localhost:3000` |
+| `./mdocs serve --port 8080` | Inicia en un puerto específico |
+| `./mdocs generate-styles` | Extrae colores de `logo.svg` y actualiza `brand.config.json` |
+| `./mdocs --help` | Muestra la ayuda |
 
-Para cambiar el puerto:
+También puedes usar la variable de entorno `PORT`:
 
 ```bash
-PORT=8080 npm start
+PORT=8080 ./mdocs serve
 ```
 
 ---
@@ -125,7 +132,7 @@ El botón **Descargar PDF** en la barra lateral genera un PDF A4 con:
 
 El archivo se descarga con el nombre `{empresa}-{titulo}-{fecha}.pdf`.
 
-> El servidor re-lee los archivos `.md` en cada request, por lo que puedes editar el contenido en caliente sin reiniciar.
+> El servidor re-lee los archivos `.md` y las templates en cada request, por lo que puedes editar el contenido en caliente sin reiniciar.
 
 ---
 
@@ -133,28 +140,35 @@ El archivo se descarga con el nombre `{empresa}-{titulo}-{fecha}.pdf`.
 
 ```
 proyecto/
-├── src/
-│   └── server.ts              ← Servidor Express + renderizado HTML
-├── scripts/
-│   └── generate-styles.ts     ← Extracción de colores del logo
+├── main.go                    ← Entry point
+├── go.mod / go.sum
+├── cmd/mdocs/
+│   ├── root.go                ← CLI Cobra
+│   ├── serve.go               ← Subcomando serve
+│   └── styles.go              ← Subcomando generate-styles
+├── internal/
+│   ├── brand/                 ← Configuración y extracción de colores
+│   ├── docs/                  ← Carga de docs y renderizado Markdown
+│   └── server/                ← Servidor HTTP y generación de PDF
+├── templates/
+│   ├── page.gohtml            ← Template HTML del visor
+│   └── print.gohtml           ← Template HTML para PDF
 ├── docs/
 │   └── *.md                   ← Archivos de contenido
 ├── brand.config.json          ← Colores e identidad corporativa
 ├── docs.config.json           ← Registro de documentos
-├── logo.svg                   ← Logo de la empresa (reemplazar)
-├── package.json
-└── tsconfig.json
+└── logo.svg                   ← Logo de la empresa (reemplazar)
 ```
 
 ---
 
 ## Stack técnico
 
-- [Express.js](https://expressjs.com/) — servidor HTTP
-- [marked](https://marked.js.org/) — parser de Markdown
-- [Puppeteer](https://pptr.dev/) — generación de PDF
-- [Mermaid](https://mermaid.js.org/) — diagramas en el navegador
-- [TypeScript](https://www.typescriptlang.org/) + [tsx](https://github.com/privatenumber/tsx) — runtime sin compilación
+- [Go](https://go.dev/) — lenguaje y servidor HTTP (`net/http`)
+- [Cobra](https://github.com/spf13/cobra) — framework CLI
+- [goldmark](https://github.com/yuin/goldmark) — parser de Markdown (GFM)
+- [chromedp](https://github.com/chromedp/chromedp) — generación de PDF via Chrome headless
+- [Mermaid](https://mermaid.js.org/) — diagramas en el navegador (CDN)
 
 ---
 

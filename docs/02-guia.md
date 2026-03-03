@@ -4,29 +4,29 @@
 
 Esta sección muestra cómo estructurar una guía paso a paso con instrucciones, código y listas de verificación.
 
-## Paso 1 — Configurar el entorno
+## Paso 1 — Compilar el binario
 
-Instala las dependencias del proyecto:
+Asegúrate de tener Go 1.22 o superior instalado:
 
 ```bash
-npm install
+go version
 ```
 
-Verifica que tienes Node.js 18 o superior:
+Compila el binario en la raíz del proyecto:
 
 ```bash
-node --version
+go build -o mdocs .
 ```
 
 ## Paso 2 — Personalizar la identidad corporativa
 
-Reemplaza el archivo `logo.svg` con el logo de tu empresa y ejecuta el script de generación de estilos:
+Reemplaza el archivo `logo.svg` con el logo de tu empresa y ejecuta el subcomando de generación de estilos:
 
 ```bash
-npm run generate:styles
+./mdocs generate-styles
 ```
 
-El script detectará automáticamente los colores del logo y actualizará `brand.config.json`.
+El comando detectará automáticamente los colores del logo y actualizará `brand.config.json`.
 
 ### Ajuste manual de colores
 
@@ -38,7 +38,7 @@ Si el resultado automático no es exactamente lo que buscas, puedes editar `bran
   "accentColor": "#0066cc",
   "companyName": "Mi Empresa S.A.",
   "docsTitle": "Portal de Documentación",
-  "docsYear": "2025"
+  "docsYear": "2026"
 }
 ```
 
@@ -66,7 +66,7 @@ Edita `docs.config.json` para listar tus documentos en el orden que quieres que 
 ## Paso 4 — Iniciar el servidor
 
 ```bash
-npm start
+./mdocs serve
 ```
 
 Abre tu navegador en `http://localhost:3000`.
@@ -75,8 +75,9 @@ Abre tu navegador en `http://localhost:3000`.
 
 ## Lista de verificación
 
+- [ ] Binario compilado (`go build -o mdocs .`)
 - [ ] Logo reemplazado (`logo.svg`)
-- [ ] Colores generados (`npm run generate:styles`)
+- [ ] Colores generados (`./mdocs generate-styles`)
 - [ ] `brand.config.json` revisado
 - [ ] Documentos registrados en `docs.config.json`
 - [ ] Archivos `.md` creados en `docs/`
@@ -84,9 +85,11 @@ Abre tu navegador en `http://localhost:3000`.
 
 ## Notas importantes
 
-> **Tip:** Para cambiar el puerto del servidor, define la variable de entorno `PORT` antes de iniciar:
+> **Tip:** Para cambiar el puerto del servidor usa el flag `--port` o la variable de entorno `PORT`:
 > ```bash
-> PORT=8080 npm start
+> ./mdocs serve --port 8080
+> # o bien
+> PORT=8080 ./mdocs serve
 > ```
 
-El servidor re-lee los archivos `.md` en cada request, por lo que puedes editar el contenido en caliente sin reiniciar.
+El servidor re-lee los archivos `.md` y las templates en cada request, por lo que puedes editar el contenido en caliente sin reiniciar.
