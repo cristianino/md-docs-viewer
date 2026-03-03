@@ -3,6 +3,7 @@ package server
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/chromedp/cdproto/page"
@@ -13,7 +14,16 @@ import (
 func GeneratePDF(port int) ([]byte, error) {
 	url := fmt.Sprintf("http://localhost:%d/print", port)
 
-	ctx, cancel := chromedp.NewContext(context.Background())
+	ctx, cancel := chromedp.NewContext(context.Background(),
+		// Silenciar errores de enum desconocidos en CDP (e.g. IPAddressSpace: Loopback)
+		// que aparecen cuando Chrome es más nuevo que cdproto pero son inofensivos.
+		chromedp.WithErrorf(func(format string, args ...any) {
+			msg := fmt.Sprintf(format, args...)
+			if !strings.Contains(msg, "could not unmarshal event") {
+				fmt.Println("chromedp:", msg)
+			}
+		}),
+	)
 	defer cancel()
 
 	ctx, cancelTimeout := context.WithTimeout(ctx, 90*time.Second)
