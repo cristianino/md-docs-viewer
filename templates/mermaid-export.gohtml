@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+body { background: white; }
+.diag-box {
+  display: inline-block;
+  background: white;
+  padding: 20px;
+  width: 840px;
+}
+</style>
+<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+</head>
+<body>
+{{range .Blocks}}
+<div id="diag-{{.Index}}" class="diag-box"></div>
+<pre id="mcode-{{.Index}}" style="display:none">{{.Code}}</pre>
+{{end}}
+<script>
+mermaid.initialize({ startOnLoad: false, theme: 'default' });
+window.__diagramCount = {{len .Blocks}};
+document.addEventListener('DOMContentLoaded', async function() {
+  for (var i = 1; i <= window.__diagramCount; i++) {
+    try {
+      var code = document.getElementById('mcode-' + i).textContent.trim();
+      var result = await mermaid.render('svg-' + i, code);
+      document.getElementById('diag-' + i).innerHTML = result.svg;
+    } catch(e) {
+      console.error('Mermaid error diagram ' + i + ':', e);
+    }
+  }
+  window.__diagramsDone = true;
+});
+</script>
+</body>
+</html>

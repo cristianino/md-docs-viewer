@@ -28,6 +28,8 @@ func Start(p int) error {
 	mux.HandleFunc("/doc/", handleDoc)
 	mux.HandleFunc("/print", handlePrint)
 	mux.HandleFunc("/pdf", handlePDF)
+	mux.HandleFunc("/drawio", handleDrawio)
+	mux.HandleFunc("/mermaid-export", handleMermaidExport)
 
 	cfg, _ := brand.Load("brand.config.json")
 	printBanner(cfg, p)
