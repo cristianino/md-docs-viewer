@@ -1,9 +1,9 @@
-## Qué cambia
+## What changes
 
-<!-- Una o dos frases. -->
+<!-- One or two sentences. -->
 
-## Cómo se probó
+## How it was tested
 
-- [ ] `gofmt -l .` no lista archivos
-- [ ] `go vet ./...` y `go test ./...` pasan
-- [ ] Si cambia un comando o una opción: README (resumen) y wiki (detalle) actualizados
+- [ ] `gofmt -l .` prints nothing
+- [ ] `go vet ./...` and `go test ./...` pass
+- [ ] If a command or option changed: README (summary) and wiki (details) updated

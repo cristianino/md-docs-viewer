@@ -15,7 +15,7 @@ concurrency:
 
 jobs:
   lint:
-    name: formato, vet y go.mod
+    name: lint (gofmt, vet, go.mod)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -60,7 +60,7 @@ jobs:
         run: go test -race ./...
 
   smoke:
-    name: prueba de punta a punta
+    name: e2e
     needs: lint
     runs-on: ubuntu-latest
     env:
@@ -119,7 +119,7 @@ jobs:
           ! tar tzf "$RUNNER_TEMP"/release/*.tar.gz | grep -q '\.go$'
 
   docker:
-    name: imágenes Docker
+    name: docker images
     needs: lint
     runs-on: ubuntu-latest
     steps:

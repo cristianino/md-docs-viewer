@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# Empaqueta mdocs listo para usar: binario + configuración + documentos.
-# No incluye código fuente.
+# Packages mdocs ready to use: binary + configuration + documents.
+# No source code is included.
 #
 #   scripts/package.sh <versión> <goos> <goarch> [carpeta-salida]
 #   scripts/package.sh v1.2.0 linux amd64          # → release/mdocs_1.2.0_linux_amd64.tar.gz
@@ -34,30 +34,34 @@ cp -r docs "$stage/docs"
 cp -r deploy "$stage/deploy"
 cp -r skills/mdocs "$stage/skill"
 
-cat > "${stage}/INICIO.md" <<TXT
+cat > "${stage}/QUICKSTART.md" <<TXT
 # mdocs ${ver} (${GOOS}/${GOARCH})
 
-Este paquete trae el binario y una documentación de ejemplo lista para servir.
+This package contains the binary and a sample documentation project ready to serve.
 
     ./${bin} serve            # http://localhost:3000
-    ./${bin} build            # dist/*.pdf y dist/*.drawio (requiere Chrome/Chromium)
+    ./${bin} build            # dist/*.pdf and dist/*.drawio (needs Chrome/Chromium)
     ./${bin} --help
 
-Para empezar un proyecto propio en otra carpeta:
+To start your own project in another folder:
 
-    ./${bin} init mi-portal
+    ./${bin} init my-portal
 
-Contenido:
-  ${bin}                 binario (plantillas y Mermaid embebidos)
-  brand.config.json      marca: empresa, título, descripción, año, colores
-  docs.config.json       lista de documentos
-  docs/                  documentos de ejemplo (.md)
-  logo.svg               logo (reemplázalo y ejecuta: ./${bin} generate-styles)
-  AGENTS.md              guía para agentes de IA
-  skill/SKILL.md         skill para Claude (./${bin} skill install --global)
-  deploy/                ejemplos de nginx, systemd, Docker y Lambda
+To use mdocs as a skill in Claude Code:
 
-Más información: https://github.com/cristianino/md-docs-viewer/wiki
+    ./${bin} skill install --global --with-binary
+
+Contents:
+  ${bin}                 binary (templates and Mermaid embedded)
+  brand.config.json      brand: company, title, description, year, colors
+  docs.config.json       list of documents
+  docs/                  sample documents (.md)
+  logo.svg               logo (replace it and run: ./${bin} generate-styles)
+  AGENTS.md              guide for AI agents
+  skill/SKILL.md         agent skill (Claude Code / claude.ai)
+  deploy/                nginx, systemd, Docker and Lambda examples
+
+More information: https://github.com/cristianino/md-docs-viewer/wiki
 TXT
 
 (

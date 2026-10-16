@@ -23,7 +23,7 @@ jobs:
     uses: ./.github/workflows/ci.yml
 
   release:
-    name: paquetes y GitHub Release
+    name: packages and GitHub Release
     needs: ci
     runs-on: ubuntu-latest
     permissions:
@@ -58,7 +58,7 @@ jobs:
             --title "$VERSION" --generate-notes --target "$GITHUB_SHA" $pre
 
   image:
-    name: imágenes en GHCR
+    name: GHCR images
     needs: ci
     runs-on: ubuntu-latest
     permissions:
