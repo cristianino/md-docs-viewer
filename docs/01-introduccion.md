@@ -17,7 +17,7 @@ logo.svg  →  mdocs generate-styles  →  brand.config.json  →  UI con tus co
 1. **Compila** el binario con `go build -o mdocs .`
 2. **Inicializa** con `mdocs init` (empresa, título, descripción, año y "powered by")
 3. **Reemplaza** `logo.svg` y ejecuta `mdocs generate-styles` para tomar sus colores
-4. **Registra** documentos con `mdocs add docs/02-guia.md --title "Guía"`
+4. **Crea** páginas con `mdocs new "Guía"` (y bórralas con `mdocs delete guia`)
 5. **Valida** con `mdocs check`
 6. **Inicia** el visor con `mdocs serve` y abre `http://localhost:3000`
 7. **Genera** el PDF y el `.drawio` con `mdocs build`

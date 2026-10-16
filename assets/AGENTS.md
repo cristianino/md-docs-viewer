@@ -8,7 +8,7 @@ Edita los `.md` y la configuración; no edites archivos generados en `dist/`.
 | Archivo | Qué contiene |
 |---|---|
 | `brand.config.json` | Empresa, título, descripción, año, colores, `poweredBy` (false por defecto) |
-| `docs.config.json` | Lista ordenada de documentos: `id`, `file`, `title`, `subtitle` |
+| `docs.config.json` | Lista ordenada de documentos: `id`, `file`, `title`, `subtitle` (no editar a mano: usa new/delete/add/index) |
 | `docs/*.md` | Contenido (GFM + bloques ```` ```mermaid ````) |
 | `logo.svg` | Logo; `mdocs generate-styles` toma sus colores |
 | `templates/*.gohtml` | Opcional: sobrescribe las plantillas embebidas |
@@ -18,8 +18,11 @@ Edita los `.md` y la configuración; no edites archivos generados en `dist/`.
 ```bash
 mdocs context --json        # entender el proyecto: docs, títulos/anclas, diagramas, problemas
 mdocs check --json          # validar después de cada cambio (exit 1 si hay errores)
-mdocs add docs/x.md --title "X" [--subtitle ".."] [--position N]   # registrar/crear doc
-mdocs remove <id>           # quitar del índice (no borra el .md)
+mdocs new "Título" [--subtitle ".."] [--position N] --json   # crear página (.md + índice)
+mdocs delete <id> --yes --json   # borrar página (.md + índice); reporta enlaces rotos
+mdocs add docs/x.md --title "X"  # registrar un .md que ya existe
+mdocs index --prune --json       # registrar .md sueltos y quitar entradas sin archivo
+mdocs remove <id>                # quitar del índice sin borrar el .md
 mdocs list --json           # documentos registrados
 mdocs build all --json      # generar dist/*.pdf y dist/*.drawio (no requiere serve)
 mdocs build drawio --mode image   # forzar diagramas como imagen
