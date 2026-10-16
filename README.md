@@ -23,7 +23,7 @@ tar xzf mdocs_1.0.0_linux_amd64.tar.gz && cd mdocs_1.0.0_linux_amd64
 
 ## Requisitos para compilar
 
-- [Go 1.24+](https://go.dev/dl/) para compilar.
+- [Go 1.26+](https://go.dev/dl/) para compilar.
 - Chrome o Chromium, solo para generar el PDF y el `.drawio`. Si no se detecta solo, usa `--chrome <ruta>` o la variable `MDOCS_CHROME`.
 
 ## Inicio rápido

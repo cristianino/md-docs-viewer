@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/chromedp/cdproto/page"
 	"github.com/chromedp/chromedp"
 
 	"github.com/cristianino/mdocs/internal/brand"
@@ -35,42 +34,58 @@ func GeneratePDF(baseURL string, cfg *brand.Config) ([]byte, error) {
 	ctx, cancelTimeout := context.WithTimeout(ctx, 120*time.Second)
 	defer cancelTimeout()
 
-	var headings []headingRef
-	var first, body, cover []byte
-	err := chromedp.Run(ctx,
+	fail := func(err error) ([]byte, error) { return nil, fmt.Errorf("generando PDF: %w", err) }
+
+	// 1. cuerpo: índice + documentos, con pie y marcadores
+	if err := chromedp.Do(ctx,
 		chromedp.Navigate(baseURL+"/print?part=body"),
-		chromedp.WaitReady("body"),
+		chromedp.WaitReady(chromedp.CSS("body")),
 		waitFlag("__mermaidDone", 20*time.Second),
-		chromedp.Evaluate(`Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6'))
-			.map(h => ({id: h.id || '', text: (h.textContent || '').trim()}))`, &headings),
-		printTo(&first, bodyParams(cfg)),
-		chromedp.ActionFunc(func(ctx context.Context) error {
-			pages := pageNumbers(first, headings)
-			if len(pages) == 0 {
-				body = first
-				return nil
-			}
-			js, _ := json.Marshal(pages)
-			script := fmt.Sprintf(`(function(p){
-				document.querySelectorAll('[data-page-of]').forEach(function(el){
-					var n = p[el.getAttribute('data-page-of')];
-					if (n) el.textContent = n;
-				});
-				return true;
-			})(%s)`, js)
-			var ok bool
-			if err := chromedp.Evaluate(script, &ok).Do(ctx); err != nil {
-				return err
-			}
-			return printTo(&body, bodyParams(cfg)).Do(ctx)
-		}),
-		chromedp.Navigate(baseURL+"/print?part=cover"),
-		chromedp.WaitReady("body"),
-		printTo(&cover, coverParams()),
-	)
-	if err != nil {
-		return nil, fmt.Errorf("generando PDF: %w", err)
+	); err != nil {
+		return fail(err)
 	}
+	headings, err := chromedp.Run(ctx, chromedp.Evaluate[[]headingRef](
+		`Array.from(document.querySelectorAll('h1,h2,h3,h4,h5,h6'))
+			.map(h => ({id: h.id || '', text: (h.textContent || '').trim()}))`))
+	if err != nil {
+		return fail(err)
+	}
+	body, err := chromedp.Run(ctx, chromedp.PrintToPDF(bodyOptions(cfg)...))
+	if err != nil {
+		return fail(err)
+	}
+
+	// 2. números de página en el índice y segunda impresión
+	if pages := pageNumbers(body, headings); len(pages) > 0 {
+		js, _ := json.Marshal(pages)
+		script := fmt.Sprintf(`(function(p){
+			document.querySelectorAll('[data-page-of]').forEach(function(el){
+				var n = p[el.getAttribute('data-page-of')];
+				if (n) el.textContent = n;
+			});
+			return true;
+		})(%s)`, js)
+		if _, err := chromedp.Run(ctx, chromedp.Evaluate[bool](script)); err != nil {
+			return fail(err)
+		}
+		if body, err = chromedp.Run(ctx, chromedp.PrintToPDF(bodyOptions(cfg)...)); err != nil {
+			return fail(err)
+		}
+	}
+
+	// 3. portada sin márgenes ni pie
+	if err := chromedp.Do(ctx,
+		chromedp.Navigate(baseURL+"/print?part=cover"),
+		chromedp.WaitReady(chromedp.CSS("body")),
+	); err != nil {
+		return fail(err)
+	}
+	cover, err := chromedp.Run(ctx, chromedp.PrintToPDF(coverOptions()...))
+	if err != nil {
+		return fail(err)
+	}
+
+	// 4. unir y ajustar el visor
 	out, err := pdfnav.Finalize(body, pdfnav.Options{Cover: cover})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "pdf: sin portada separada ni ajustes de visor:", err)
@@ -79,55 +94,44 @@ func GeneratePDF(baseURL string, cfg *brand.Config) ([]byte, error) {
 	return out, nil
 }
 
-func waitFlag(name string, max time.Duration) chromedp.ActionFunc {
-	return func(ctx context.Context) error {
+// waitFlag espera hasta max a que window.<name> sea true. No falla si no
+// llega (p. ej. una página sin diagramas).
+func waitFlag(name string, max time.Duration) chromedp.Action[chromedp.Void] {
+	return chromedp.Func(func(ctx context.Context, t *chromedp.Target) error {
 		deadline := time.Now().Add(max)
 		for time.Now().Before(deadline) {
-			var done bool
-			if err := chromedp.Evaluate(`window.`+name+` === true`, &done).Do(ctx); err == nil && done {
+			if done, err := chromedp.Evaluate[bool](`window.`+name+` === true`)(ctx, t); err == nil && done {
 				return nil
 			}
-			time.Sleep(200 * time.Millisecond)
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(200 * time.Millisecond):
+			}
 		}
-		return nil // continuar aunque no termine (p. ej. sin diagramas)
+		return nil
+	})
+}
+
+// A4 con fondo: 25 mm arriba y abajo, 20 mm a los lados.
+func bodyOptions(cfg *brand.Config) []chromedp.PDFOption {
+	return []chromedp.PDFOption{
+		chromedp.PDFPaper(chromedp.PaperA4),
+		chromedp.PDFPrintBackground(),
+		chromedp.PDFMargins(0.98, 0.79, 0.98, 0.79), // arriba, derecha, abajo, izquierda (pulgadas)
+		chromedp.PDFHeaderTemplate(`<span></span>`),
+		chromedp.PDFFooterTemplate(footerTemplate(cfg)),
+		chromedp.PDFOutlineAndTagged(),
 	}
 }
 
-func printTo(out *[]byte, params *page.PrintToPDFParams) chromedp.ActionFunc {
-	return func(ctx context.Context) error {
-		buf, _, err := params.Do(ctx)
-		*out = buf
-		return err
+func coverOptions() []chromedp.PDFOption {
+	return []chromedp.PDFOption{
+		chromedp.PDFPaper(chromedp.PaperA4),
+		chromedp.PDFPrintBackground(),
+		chromedp.PDFMargins(0, 0, 0, 0),
+		chromedp.PDFPageRanges("1"),
 	}
-}
-
-func a4() *page.PrintToPDFParams {
-	return page.PrintToPDF().
-		WithPrintBackground(true).
-		WithPaperWidth(8.27).  // A4 ancho en pulgadas
-		WithPaperHeight(11.69) // A4 alto en pulgadas
-}
-
-func bodyParams(cfg *brand.Config) *page.PrintToPDFParams {
-	return a4().
-		WithMarginTop(0.98). // 25mm
-		WithMarginBottom(0.98).
-		WithMarginLeft(0.79). // 20mm
-		WithMarginRight(0.79).
-		WithDisplayHeaderFooter(true).
-		WithHeaderTemplate(`<span></span>`).
-		WithFooterTemplate(footerTemplate(cfg)).
-		WithGenerateTaggedPDF(true).
-		WithGenerateDocumentOutline(true)
-}
-
-func coverParams() *page.PrintToPDFParams {
-	return a4().
-		WithMarginTop(0).
-		WithMarginBottom(0).
-		WithMarginLeft(0).
-		WithMarginRight(0).
-		WithPageRanges("1")
 }
 
 func footerTemplate(cfg *brand.Config) string {

@@ -108,28 +108,27 @@ func captureDiagrams(base string, count int) (*capture, error) {
 	defer cancelTimeout()
 
 	c := &capture{pngs: make([][]byte, count)}
-	var raw string
-	tasks := chromedp.Tasks{
-		chromedp.Navigate(base + "/mermaid-export"),
-		chromedp.WaitReady("body"),
+	if err := chromedp.Do(ctx,
+		chromedp.Navigate(base+"/mermaid-export"),
+		chromedp.WaitReady(chromedp.CSS("body")),
 		waitFlag("__diagramsDone", 30*time.Second),
-		chromedp.Evaluate(`JSON.stringify(window.__exports || [])`, &raw),
+	); err != nil {
+		return nil, fmt.Errorf("capturando diagramas: %w", err)
+	}
+	raw, err := chromedp.Run(ctx, chromedp.Evaluate[string](`JSON.stringify(window.__exports || [])`))
+	if err != nil {
+		return nil, fmt.Errorf("leyendo geometría de diagramas: %w", err)
 	}
 	for i := 0; i < count; i++ {
-		i := i
-		selector := fmt.Sprintf("#diag-%d", i+1)
-		tasks = append(tasks, chromedp.ActionFunc(func(ctx context.Context) error {
-			var buf []byte
-			if err := chromedp.Screenshot(selector, &buf, chromedp.ByQuery).Do(ctx); err != nil {
-				fmt.Fprintf(os.Stderr, "drawio: sin captura del diagrama %d: %v\n", i+1, err)
-				return nil // no abortar por un error individual
-			}
-			c.pngs[i] = buf
-			return nil
-		}))
-	}
-	if err := chromedp.Run(ctx, tasks); err != nil {
-		return nil, fmt.Errorf("capturando diagramas: %w", err)
+		// límite por captura: si el nodo no existe, la consulta esperaría hasta el timeout global
+		shotCtx, cancelShot := context.WithTimeout(ctx, 15*time.Second)
+		buf, err := chromedp.Run(shotCtx, chromedp.Screenshot(chromedp.ID(fmt.Sprintf("diag-%d", i+1))))
+		cancelShot()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "drawio: sin captura del diagrama %d: %v\n", i+1, err)
+			continue // no abortar por un error individual
+		}
+		c.pngs[i] = buf
 	}
 	if err := json.Unmarshal([]byte(raw), &c.exports); err != nil {
 		return nil, fmt.Errorf("leyendo geometría de diagramas: %w", err)
