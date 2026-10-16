@@ -6,28 +6,55 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 )
 
 type Config struct {
-	PrimaryColor string `json:"primaryColor"`
-	AccentColor  string `json:"accentColor"`
-	CompanyName  string `json:"companyName"`
-	DocsTitle    string `json:"docsTitle"`
-	DocsYear     string `json:"docsYear"`
-	PoweredBy    bool   `json:"poweredBy"`
+	PrimaryColor  string `json:"primaryColor"`
+	AccentColor   string `json:"accentColor"`
+	CompanyName   string `json:"companyName"`
+	DocsTitle     string `json:"docsTitle"`
+	Description   string `json:"description"`
+	DocsYear      string `json:"docsYear"`
+	PoweredBy     bool   `json:"poweredBy"`
+	PoweredByText string `json:"poweredByText,omitempty"`
+	PoweredByURL  string `json:"poweredByUrl,omitempty"`
 }
 
-var defaults = Config{
-	PrimaryColor: "#1a202c",
-	AccentColor:  "#3182ce",
-	CompanyName:  "Mi Empresa",
-	DocsTitle:    "Documentación",
-	DocsYear:     "2026",
-	PoweredBy:    false,
+// Defaults devuelve la configuración por defecto. poweredBy es false.
+func Defaults() Config {
+	return Config{
+		PrimaryColor: "#1a202c",
+		AccentColor:  "#3182ce",
+		CompanyName:  "Mi Empresa",
+		DocsTitle:    "Documentación",
+		Description:  "",
+		DocsYear:     strconv.Itoa(time.Now().Year()),
+		PoweredBy:    false,
+	}
+}
+
+// PoweredByLabel devuelve el texto de atribución (por defecto "mdocs").
+func (c *Config) PoweredByLabel() string {
+	if strings.TrimSpace(c.PoweredByText) != "" {
+		return c.PoweredByText
+	}
+	return "mdocs"
+}
+
+// PoweredByLink devuelve la URL de atribución.
+func (c *Config) PoweredByLink() string {
+	if strings.TrimSpace(c.PoweredByURL) != "" {
+		return c.PoweredByURL
+	}
+	if c.PoweredByText == "" {
+		return "https://github.com/cristianino/md-docs-viewer"
+	}
+	return ""
 }
 
 func Load(path string) (*Config, error) {
-	cfg := defaults
+	cfg := Defaults()
 	data, err := os.ReadFile(path)
 	if err != nil {
 		return &cfg, nil
@@ -43,7 +70,7 @@ func Save(path string, cfg *Config) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(path, data, 0644)
+	return os.WriteFile(path, append(data, '\n'), 0644)
 }
 
 // HexToRGBA convierte un color hex a formato CSS rgba(r, g, b, alpha).

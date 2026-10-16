@@ -12,6 +12,7 @@ import (
 	"golang.org/x/text/transform"
 	"golang.org/x/text/unicode/norm"
 
+	"github.com/cristianino/mdocs/assets"
 	"github.com/cristianino/mdocs/internal/brand"
 	"github.com/cristianino/mdocs/internal/docs"
 )
@@ -25,6 +26,7 @@ func Start(p int) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleRoot)
 	mux.HandleFunc("/logo.svg", handleLogo)
+	mux.HandleFunc("/assets/mermaid.min.js", handleMermaidJS)
 	mux.HandleFunc("/doc/", handleDoc)
 	mux.HandleFunc("/print", handlePrint)
 	mux.HandleFunc("/pdf", handlePDF)
@@ -65,11 +67,16 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 func handleLogo(w http.ResponseWriter, r *http.Request) {
 	data, err := os.ReadFile("logo.svg")
 	if err != nil {
-		http.NotFound(w, r)
-		return
+		data = assets.DefaultLogo
 	}
 	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Write(data)
+}
+
+func handleMermaidJS(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write(assets.MermaidJS)
 }
 
 func handleDoc(w http.ResponseWriter, r *http.Request) {

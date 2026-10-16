@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>{{.Brand.CompanyName}} — {{.Brand.DocsTitle}}</title>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="/assets/mermaid.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -23,6 +23,7 @@
     .cover-logo img { max-height: 90px; width: auto; }
     .cover-company { font-size: 2rem; font-weight: 800; color: {{.Brand.PrimaryColor}}; margin-bottom: 10px; }
     .cover-title { font-size: 1.2rem; font-weight: 400; color: #4a5568; margin-bottom: 36px; }
+    .cover-description { font-size: 0.95rem; color: #718096; max-width: 120mm; margin: -24px auto 36px; }
     .cover-line { width: 72px; height: 4px; background: {{.Brand.AccentColor}}; border-radius: 2px; margin: 0 auto 36px; }
     .cover-date { font-size: 0.85rem; color: #718096; margin-bottom: 12px; }
     .cover-powered { font-size: 0.8rem; color: #a0aec0; }
@@ -117,10 +118,11 @@
     <div class="cover-logo"><img src="/logo.svg" alt="{{.Brand.CompanyName}}"></div>
     <div class="cover-company">{{.Brand.CompanyName}}</div>
     <div class="cover-title">{{.Brand.DocsTitle}}</div>
+    {{if .Brand.Description}}<div class="cover-description">{{.Brand.Description}}</div>{{end}}
     <div class="cover-line"></div>
     <div class="cover-date">{{.Date}}</div>
     {{if .Brand.PoweredBy}}
-    <div class="cover-powered">Powered by <a href="https://laratec.co/">Laratec SAS</a></div>
+    <div class="cover-powered">Powered by {{with .Brand.PoweredByLink}}<a href="{{.}}">{{$.Brand.PoweredByLabel}}</a>{{else}}{{.Brand.PoweredByLabel}}{{end}}</div>
     {{end}}
   </div>
 

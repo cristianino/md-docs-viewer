@@ -9,17 +9,23 @@ import (
 
 	"github.com/cristianino/mdocs/internal/brand"
 	"github.com/cristianino/mdocs/internal/docs"
+	"github.com/cristianino/mdocs/templates"
 )
 
 var funcMap = template.FuncMap{
 	"add": func(a, b int) int { return a + b },
 }
 
+// loadTemplate usa templates/<name> del proyecto si existe (edición en
+// caliente); si no, la versión embebida en el binario.
 func loadTemplate(name string) (*template.Template, error) {
 	path := "templates/" + name
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("leyendo template %s: %w", path, err)
+		data, err = templates.FS.ReadFile(name)
+		if err != nil {
+			return nil, fmt.Errorf("leyendo template %s: %w", name, err)
+		}
 	}
 	tmpl, err := template.New(name).Funcs(funcMap).Parse(string(data))
 	if err != nil {
