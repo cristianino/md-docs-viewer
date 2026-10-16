@@ -302,3 +302,45 @@ func firstNonEmpty(v ...string) string {
 }
 
 func toSlash(p string) string { return strings.ReplaceAll(p, "\\", "/") }
+
+// Reference es un enlace desde un documento hacia otro.
+type Reference struct {
+	From string `json:"from"` // id del documento que enlaza
+	File string `json:"file"`
+	Link string `json:"link"`
+}
+
+// References busca enlaces en los demás documentos que apunten a target
+// (por ruta relativa al .md o por /doc/{id}).
+func References(target *docs.Doc, list []*docs.Doc) []Reference {
+	var out []Reference
+	want := path.Clean(toSlash(target.File))
+	for _, d := range list {
+		if d.ID == target.ID {
+			continue
+		}
+		raw, err := os.ReadFile(d.File)
+		if err != nil {
+			continue
+		}
+		text := reFence.ReplaceAllString(string(raw), "")
+		base := path.Dir(toSlash(d.File))
+		for _, m := range reLink.FindAllStringSubmatch(text, -1) {
+			if strings.HasPrefix(m[0], "!") {
+				continue
+			}
+			p, _, _ := strings.Cut(m[1], "#")
+			hit := false
+			switch {
+			case strings.HasPrefix(p, "/doc/"):
+				hit = strings.TrimSuffix(strings.TrimPrefix(p, "/doc/"), "/") == target.ID
+			case strings.HasSuffix(strings.ToLower(p), ".md") && !strings.Contains(p, "://"):
+				hit = path.Clean(path.Join(base, toSlash(p))) == want
+			}
+			if hit {
+				out = append(out, Reference{From: d.ID, File: d.File, Link: m[1]})
+			}
+		}
+	}
+	return out
+}

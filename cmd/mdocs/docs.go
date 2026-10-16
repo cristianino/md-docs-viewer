@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -14,15 +13,13 @@ import (
 	"github.com/cristianino/mdocs/internal/project"
 )
 
-var reNumPrefix = regexp.MustCompile(`^\d+[-_. ]+`)
-
 func NewAddCmd() *cobra.Command {
 	var id, title, subtitle string
 	var position int
 
 	cmd := &cobra.Command{
 		Use:   "add <archivo.md>",
-		Short: "Registra un documento en docs.config.json (y lo crea si no existe)",
+		Short: "Registra (indexa) un .md existente en docs.config.json; lo crea si no existe",
 		Long: `Agrega el archivo a docs.config.json. Si el archivo no existe lo crea con
 un título "# {title}".
 
@@ -45,8 +42,7 @@ Valores por defecto:
 				}
 			}
 			if id == "" {
-				base := strings.TrimSuffix(filepath.Base(file), filepath.Ext(file))
-				id = docs.Slug(reNumPrefix.ReplaceAllString(base, ""))
+				id = docs.IDFromFile(file)
 			}
 			for _, d := range list {
 				if d.ID == id {

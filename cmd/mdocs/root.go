@@ -29,7 +29,8 @@ diagramas Mermaid como formas editables.
 
 Flujo típico:
   mdocs init                 crea la configuración
-  mdocs add docs/guia.md     registra (o crea) un documento
+  mdocs new "Guía"           crea docs/NN-guia.md y lo registra
+  mdocs delete guia          lo quita del índice y borra el .md
   mdocs serve                visor web en http://localhost:3000
   mdocs build all            genera dist/*.pdf y dist/*.drawio
   mdocs check                valida enlaces, archivos y diagramas
@@ -56,7 +57,7 @@ func Execute() {
 	rootCmd.PersistentFlags().StringVar(&chromeFlag, "chrome", "", "Ruta a Chrome/Chromium (o variable MDOCS_CHROME)")
 	rootCmd.AddCommand(
 		NewInitCmd(), NewServeCmd(), NewBuildCmd(), NewExportCmd(),
-		NewAddCmd(), NewRemoveCmd(), NewListCmd(),
+		NewNewCmd(), NewAddCmd(), NewIndexCmd(), NewDeleteCmd(), NewRemoveCmd(), NewListCmd(),
 		NewCheckCmd(), NewContextCmd(), NewAgentsCmd(),
 		NewStylesCmd(), NewHealthcheckCmd(),
 	)
