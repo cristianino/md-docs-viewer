@@ -2,8 +2,11 @@ package docs
 
 import (
 	"bytes"
+	"fmt"
+	stdhtml "html"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 
 	"github.com/yuin/goldmark"
@@ -120,8 +123,65 @@ func Render(source []byte, opt Options) (*Result, error) {
 	if err := md.Renderer().Render(&buf, source, doc); err != nil {
 		return nil, err
 	}
-	res.HTML = buf.String()
+	res.HTML = reTOCMarker.ReplaceAllLiteralString(buf.String(), TOCHTML(res.Headings, 3))
 	return res, nil
+}
+
+// reTOCMarker encuentra un párrafo que solo contiene [TOC] (o [[TOC]],
+// sin distinguir mayúsculas).
+var reTOCMarker = regexp.MustCompile(`(?i)<p>\s*\[\[?toc\]?\]\s*</p>`)
+
+// TOCHTML genera una tabla de contenido anidada con los títulos del
+// documento hasta maxLevel. Omite el título principal (el primer H1).
+func TOCHTML(headings []Heading, maxLevel int) string {
+	var items []Heading
+	for i, h := range headings {
+		if i == 0 && h.Level == 1 {
+			continue
+		}
+		if h.Level <= maxLevel && h.ID != "" {
+			items = append(items, h)
+		}
+	}
+	if len(items) == 0 {
+		return ""
+	}
+	base := items[0].Level
+	for _, h := range items {
+		if h.Level < base {
+			base = h.Level
+		}
+	}
+	var b strings.Builder
+	b.WriteString(`<nav class="md-toc" aria-label="Tabla de contenido"><ul>`)
+	depth := 0
+	for i, h := range items {
+		lvl := h.Level - base
+		if lvl < 0 {
+			lvl = 0
+		}
+		switch {
+		case i == 0:
+		case lvl > depth:
+			for ; depth < lvl; depth++ {
+				b.WriteString("<ul>")
+			}
+		case lvl < depth:
+			for ; depth > lvl; depth-- {
+				b.WriteString("</li></ul>")
+			}
+			b.WriteString("</li>")
+		default:
+			b.WriteString("</li>")
+		}
+		depth = lvl
+		fmt.Fprintf(&b, `<li><a href="#%s">%s</a>`, stdhtml.EscapeString(h.ID), stdhtml.EscapeString(h.Text))
+	}
+	for ; depth > 0; depth-- {
+		b.WriteString("</li></ul>")
+	}
+	b.WriteString("</li></ul></nav>")
+	return b.String()
 }
 
 // AnchorPrefix es el prefijo de los ids de un documento dentro del PDF.

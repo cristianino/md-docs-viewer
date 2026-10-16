@@ -23,6 +23,7 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("/logo.svg", handleLogo)
 	mux.HandleFunc("/assets/mermaid.min.js", handleMermaidJS)
 	mux.HandleFunc("/doc/", handleDoc)
+	mux.HandleFunc("/indice", handleIndex)
 	mux.HandleFunc("/print", handlePrint)
 	mux.HandleFunc("/pdf", handlePDF)
 	mux.HandleFunc("/drawio", handleDrawio)
@@ -104,6 +105,21 @@ func handleMermaidJS(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	w.Write(assets.MermaidJS)
+}
+
+func handleIndex(w http.ResponseWriter, r *http.Request) {
+	cfg, docList, err := LoadState()
+	if err != nil {
+		http.Error(w, "Error de configuración: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	html, err := renderIndex(cfg, docList)
+	if err != nil {
+		http.Error(w, "Error de template: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+	w.Header().Set("Content-Type", "text/html; charset=utf-8")
+	fmt.Fprint(w, html)
 }
 
 func handleDoc(w http.ResponseWriter, r *http.Request) {

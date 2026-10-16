@@ -55,3 +55,18 @@ func TestSlugDedup(t *testing.T) {
 		t.Errorf("got %q %q", a, b)
 	}
 }
+
+func TestTOCMarker(t *testing.T) {
+	src := "# Título\n\n[TOC]\n\n## Uno\n\n### Uno.a\n\n## Dos\n"
+	res, err := Render([]byte(src), Options{Mode: ModeWeb, Doc: list[0], All: list})
+	if err != nil {
+		t.Fatal(err)
+	}
+	want := `<nav class="md-toc" aria-label="Tabla de contenido"><ul><li><a href="#uno">Uno</a><ul><li><a href="#unoa">Uno.a</a></li></ul></li><li><a href="#dos">Dos</a></li></ul></nav>`
+	if !strings.Contains(res.HTML, want) {
+		t.Errorf("TOC inesperado:\n%s", res.HTML)
+	}
+	if strings.Contains(res.HTML, "[TOC]") {
+		t.Error("el marcador no se reemplazó")
+	}
+}
