@@ -1,0 +1,157 @@
+name: ci
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+  workflow_call:          # el workflow de release lo reutiliza
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    name: formato, vet y go.mod
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: gofmt
+        run: |
+          out="$(gofmt -l .)"
+          if [ -n "$out" ]; then
+            echo "::error::Archivos sin formato (ejecuta: gofmt -w .):"
+            echo "$out"
+            exit 1
+          fi
+      - name: go vet
+        run: go vet ./...
+      - name: go.mod y go.sum al día
+        run: |
+          go mod tidy
+          git diff --exit-code go.mod go.sum || {
+            echo "::error::go.mod/go.sum desactualizados (ejecuta: go mod tidy)"; exit 1; }
+
+  test:
+    name: test (${{ matrix.os }})
+    needs: lint
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: compilar
+        run: go build ./...
+      - name: tests
+        run: go test ./...
+      - name: tests con race detector
+        if: runner.os == 'Linux'
+        run: go test -race ./...
+
+  smoke:
+    name: prueba de punta a punta
+    needs: lint
+    runs-on: ubuntu-latest
+    env:
+      MDOCS_NO_SANDBOX: "1"   # Ubuntu 24.04 limita los user namespaces que usa el sandbox de Chrome
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: compilar
+        run: go build -o "$RUNNER_TEMP/mdocs" .
+      - name: la documentación del repo es válida
+        run: $RUNNER_TEMP/mdocs check --strict
+      - name: proyecto nuevo, páginas y sitio estático
+        run: |
+          set -euo pipefail
+          M="$RUNNER_TEMP/mdocs"
+          P="$RUNNER_TEMP/proyecto"
+          $M init "$P" --yes --company "CI" --title "Smoke" --description "prueba"
+          cd "$P"
+          $M new "Guía rápida" --subtitle "pasos" --json
+          $M index --json
+          $M check --strict --json
+          $M delete guia-rapida --yes --json
+          $M check --strict
+          $M export -o site --base-path /docs --no-pdf --no-drawio --json
+          test -f site/doc/introduccion/index.html
+          test -f site/indice/index.html
+      - name: PDF y draw.io con Chrome
+        run: |
+          set -euo pipefail
+          $RUNNER_TEMP/mdocs build all --json | tee build.json
+          pdf=$(ls dist/*.pdf); drawio=$(ls dist/*.drawio)
+          head -c 5 "$pdf" | grep -q '%PDF-'
+          grep -q '<mxfile' "$drawio"
+          grep -q '"output": "native"' build.json
+      - name: servidor con base path y modo static
+        run: |
+          set -euo pipefail
+          $RUNNER_TEMP/mdocs serve -p 8080 --base-path /docs --exports static &
+          for i in $(seq 1 20); do curl -fs localhost:8080/healthz && break; sleep 0.5; done
+          curl -fs -o /dev/null localhost:8080/docs/doc/introduccion
+          curl -fs -o /dev/null localhost:8080/docs/indice
+          curl -fs -o /dev/null localhost:8080/docs/pdf
+          $RUNNER_TEMP/mdocs healthcheck --url http://127.0.0.1:8080/healthz
+          kill %1
+      - name: empaquetado de release
+        run: |
+          scripts/package.sh v0.0.0-ci linux amd64 "$RUNNER_TEMP/release"
+          tar tzf "$RUNNER_TEMP"/release/*.tar.gz | grep -q '/mdocs$'
+          ! tar tzf "$RUNNER_TEMP"/release/*.tar.gz | grep -q '\.go$'
+
+  docker:
+    name: imágenes Docker
+    needs: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: docker/setup-buildx-action@v4
+      - name: completa (con Chromium)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: full
+          load: true
+          tags: mdocs:ci
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: mínima (slim)
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          target: slim
+          load: true
+          tags: mdocs:ci-slim
+          cache-from: type=gha
+      - name: la imagen arranca y responde
+        run: |
+          set -uo pipefail
+          fail() {
+            echo "::error::$1"
+            docker logs mdocs-ci 2>&1 | tail -40 | sed 's/^/::error::container: /'
+            exit 1
+          }
+          out=$(docker run -d --name mdocs-ci -p 8080:8080 --shm-size=256m -v "$PWD:/work:ro" mdocs:ci 2>&1) || fail "docker run falló: $out"
+          ok=0
+          for i in $(seq 1 30); do curl -fs localhost:8080/healthz && { ok=1; break; }; sleep 1; done
+          [ "$ok" = 1 ] || fail "/healthz no respondió"
+          curl -fsS -o /dev/null localhost:8080/doc/introduccion || fail "/doc/introduccion falló"
+          code=$(curl -s -o /tmp/out.pdf -w '%{http_code}' --max-time 120 localhost:8080/pdf)
+          [ "$code" = 200 ] || fail "/pdf respondió $code: $(head -c 300 /tmp/out.pdf)"
+          head -c 5 /tmp/out.pdf | grep -q '%PDF-' || fail "/pdf no es un PDF"
+          docker rm -f mdocs-ci
+          docker run --rm mdocs:ci-slim --version || fail "slim --version falló"

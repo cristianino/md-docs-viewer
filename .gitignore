@@ -7,5 +7,7 @@ node_modules
 
 # build output
 /dist/
+/site/
+/release/
 *.pdf
 *.drawio

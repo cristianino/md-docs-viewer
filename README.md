@@ -8,7 +8,20 @@ Documentación a partir de archivos Markdown, pensada para personas y para agent
 
 Funciona sin conexión: Mermaid y las plantillas van embebidas en el binario.
 
-## Requisitos
+## Instalación
+
+**Desde un release (sin Go):** descarga el paquete de tu sistema en [Releases](https://github.com/cristianino/md-docs-viewer/releases): `mdocs_<versión>_linux_amd64.tar.gz`, `…_windows_amd64.zip`, `…_darwin_arm64.tar.gz`, etc. Cada paquete trae el binario, `brand.config.json`, `docs.config.json`, los `.md` de ejemplo, `logo.svg`, `AGENTS.md` y `deploy/`; no trae código fuente.
+
+```bash
+tar xzf mdocs_1.0.0_linux_amd64.tar.gz && cd mdocs_1.0.0_linux_amd64
+./mdocs serve                  # http://localhost:3000
+```
+
+**Con Docker:** `docker run -p 8080:8080 -v "$PWD:/work:ro" ghcr.io/cristianino/mdocs` (o `:slim`, sin Chrome).
+
+**Desde el código:** se explica en *Inicio rápido* (abajo).
+
+## Requisitos para compilar
 
 - [Go 1.24+](https://go.dev/dl/) para compilar.
 - Chrome o Chromium, solo para generar el PDF y el `.drawio`. Si no se detecta solo, usa `--chrome <ruta>` o la variable `MDOCS_CHROME`.
@@ -91,6 +104,10 @@ Variables de `serve`: `MDOCS_HOST`, `PORT`, `MDOCS_BASE_PATH`, `MDOCS_EXPORTS`, 
 ## Más información
 
 Cada comando, la exportación a PDF y draw.io, las plantillas y la guía para IAs están explicados en la [wiki](https://github.com/cristianino/md-docs-viewer/wiki).
+
+## Contribuir
+
+Los PR hacia `master` deben pasar el CI: formato, `go vet`, tests en Linux, Windows y macOS, una prueba de punta a punta, las imágenes Docker y el empaquetado. Los detalles están en [CONTRIBUTING.md](CONTRIBUTING.md).
 
 ## Licencia
 

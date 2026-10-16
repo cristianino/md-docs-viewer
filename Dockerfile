@@ -6,13 +6,17 @@
 #                                           para --exports static u off
 # El proyecto de documentación se monta (o copia) en /work.
 
-FROM golang:1.24-bookworm AS build
+# La compilación corre en la arquitectura del host y cruza a la del destino
+# (sin emulación): docker buildx build --platform linux/amd64,linux/arm64 .
+FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS build
+ARG TARGETOS=linux
+ARG TARGETARCH=amd64
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
 COPY . .
 ARG VERSION=dev
-RUN CGO_ENABLED=0 go build -trimpath \
+RUN CGO_ENABLED=0 GOOS=$TARGETOS GOARCH=$TARGETARCH go build -trimpath \
       -ldflags "-s -w -X github.com/cristianino/mdocs/cmd/mdocs.Version=${VERSION}" \
       -o /out/mdocs .
 
