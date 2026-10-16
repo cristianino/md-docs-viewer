@@ -106,17 +106,10 @@ func handleMermaidExport(w http.ResponseWriter, r *http.Request) {
 
 // --- Captura de PNGs con chromedp (screenshot por elemento) ---
 
-func captureMermaidPNGs(p int, count int) ([][]byte, error) {
-	url := fmt.Sprintf("http://localhost:%d/mermaid-export", p)
+func captureMermaidPNGs(base string, count int) ([][]byte, error) {
+	url := base + "/mermaid-export"
 
-	ctx, cancel := chromedp.NewContext(context.Background(),
-		chromedp.WithErrorf(func(format string, args ...any) {
-			msg := fmt.Sprintf(format, args...)
-			if !strings.Contains(msg, "could not unmarshal event") {
-				fmt.Println("chromedp:", msg)
-			}
-		}),
-	)
+	ctx, cancel := newChromeContext(context.Background())
 	defer cancel()
 
 	ctx, cancelTimeout := context.WithTimeout(ctx, 90*time.Second)
@@ -244,7 +237,7 @@ func handleDrawio(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pngs, err := captureMermaidPNGs(port, len(blocks))
+	pngs, err := captureMermaidPNGs(baseURL(), len(blocks))
 	if err != nil {
 		http.Error(w, "Error capturando imágenes: "+err.Error(), http.StatusInternalServerError)
 		return

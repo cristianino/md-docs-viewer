@@ -40,12 +40,22 @@ type pageData struct {
 	ActiveID    string
 	ActiveDoc   *docs.Doc
 	Content     template.HTML
+	Headings    []docs.Heading
 	AccentFaint string
+}
+
+// tocEntry es una línea del índice del PDF.
+type tocEntry struct {
+	Level  int // 1 = documento, 2.. = títulos internos
+	Text   string
+	Anchor string
 }
 
 type printSection struct {
 	Doc     *docs.Doc
+	Anchor  string
 	Content template.HTML
+	TOC     []tocEntry
 }
 
 type printData struct {
@@ -54,26 +64,34 @@ type printData struct {
 	Sections    []printSection
 	Date        string
 	AccentFaint string
+	ShowCover   bool
+	ShowBody    bool
 }
 
-func renderPage(cfg *brand.Config, docList []*docs.Doc, activeID string, content string) (string, error) {
+// PrintPart elige qué parte del HTML de impresión se genera.
+type PrintPart string
+
+const (
+	PartAll   PrintPart = ""
+	PartCover PrintPart = "cover"
+	PartBody  PrintPart = "body"
+)
+
+// tocDepth es el nivel máximo (original del Markdown) que entra al índice.
+const tocDepth = 2
+
+func renderPage(cfg *brand.Config, docList []*docs.Doc, active *docs.Doc, res *docs.Result) (string, error) {
 	tmpl, err := loadTemplate("page.gohtml")
 	if err != nil {
 		return "", err
 	}
-	var activeDoc *docs.Doc
-	for _, d := range docList {
-		if d.ID == activeID {
-			activeDoc = d
-			break
-		}
-	}
 	data := pageData{
 		Brand:       cfg,
 		Docs:        docList,
-		ActiveID:    activeID,
-		ActiveDoc:   activeDoc,
-		Content:     template.HTML(content),
+		ActiveID:    active.ID,
+		ActiveDoc:   active,
+		Content:     template.HTML(res.HTML),
+		Headings:    res.Headings,
 		AccentFaint: brand.HexToRGBA(cfg.AccentColor, 0.08),
 	}
 	var buf bytes.Buffer
@@ -83,37 +101,49 @@ func renderPage(cfg *brand.Config, docList []*docs.Doc, activeID string, content
 	return buf.String(), nil
 }
 
-func renderPrint(cfg *brand.Config, docList []*docs.Doc) (string, error) {
-	tmpl, err := loadTemplate("print.gohtml")
-	if err != nil {
-		return "", err
-	}
-	now := time.Now()
+func spanishDate(t time.Time) string {
 	months := []string{
 		"enero", "febrero", "marzo", "abril", "mayo", "junio",
 		"julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
 	}
-	date := fmt.Sprintf("%d de %s de %d", now.Day(), months[now.Month()-1], now.Year())
+	return fmt.Sprintf("%d de %s de %d", t.Day(), months[t.Month()-1], t.Year())
+}
+
+func renderPrint(cfg *brand.Config, docList []*docs.Doc, part PrintPart) (string, error) {
+	tmpl, err := loadTemplate("print.gohtml")
+	if err != nil {
+		return "", err
+	}
 
 	var sections []printSection
 	for _, d := range docList {
+		sec := printSection{Doc: d, Anchor: docs.SectionAnchor(d.ID)}
 		raw, err := os.ReadFile(d.File)
-		var html string
+		var res *docs.Result
 		if err == nil {
-			html, err = docs.Render(raw)
+			res, err = docs.Render(raw, docs.Options{Mode: docs.ModePrint, Doc: d, All: docList, DropTitle: true})
 		}
 		if err != nil {
-			html = "<p><em>Error al cargar el documento.</em></p>"
+			sec.Content = "<p><em>Error al cargar el documento.</em></p>"
+		} else {
+			sec.Content = template.HTML(res.HTML)
+			for _, h := range res.Headings {
+				if h.Level <= tocDepth && h.ID != "" {
+					sec.TOC = append(sec.TOC, tocEntry{Level: h.Level + 1, Text: h.Text, Anchor: h.ID})
+				}
+			}
 		}
-		sections = append(sections, printSection{Doc: d, Content: template.HTML(html)})
+		sections = append(sections, sec)
 	}
 
 	data := printData{
 		Brand:       cfg,
 		Docs:        docList,
 		Sections:    sections,
-		Date:        date,
+		Date:        spanishDate(time.Now()),
 		AccentFaint: brand.HexToRGBA(cfg.AccentColor, 0.08),
+		ShowCover:   part != PartBody,
+		ShowBody:    part != PartCover,
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {

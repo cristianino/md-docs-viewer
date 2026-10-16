@@ -2,6 +2,8 @@
 
 > Reemplaza este archivo con tu guía de implementación, tutorial o proceso.
 
+Antes de empezar, revisa [cómo funciona el visor](01-introduccion.md#cómo-funciona). Los enlaces entre archivos `.md` funcionan en la web y dentro del PDF.
+
 Esta sección muestra cómo estructurar una guía paso a paso con instrucciones, código y listas de verificación.
 
 ## Paso 1 — Compilar el binario

@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -32,11 +34,25 @@ func Start(p int) error {
 	mux.HandleFunc("/pdf", handlePDF)
 	mux.HandleFunc("/drawio", handleDrawio)
 	mux.HandleFunc("/mermaid-export", handleMermaidExport)
+	mux.HandleFunc("/files/", handleFiles)
 
 	cfg, _ := brand.Load("brand.config.json")
 	printBanner(cfg, p)
 
 	return http.ListenAndServe(fmt.Sprintf(":%d", p), mux)
+}
+
+func baseURL() string { return fmt.Sprintf("http://localhost:%d", port) }
+
+// handleFiles sirve archivos del proyecto (imágenes referenciadas desde los
+// .md). Solo rutas relativas dentro de la carpeta actual.
+func handleFiles(w http.ResponseWriter, r *http.Request) {
+	rel := path.Clean(strings.TrimPrefix(r.URL.Path, "/files/"))
+	if rel == "." || strings.HasPrefix(rel, "..") || path.IsAbs(rel) || strings.HasSuffix(rel, ".json") {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.FromSlash(rel))
 }
 
 func loadState() (*brand.Config, []*docs.Doc, error) {
@@ -109,13 +125,13 @@ func handleDoc(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Documento no encontrado: "+doc.File, http.StatusNotFound)
 		return
 	}
-	htmlContent, err := docs.Render(raw)
+	res, err := docs.Render(raw, docs.Options{Mode: docs.ModeWeb, Doc: doc, All: docList})
 	if err != nil {
 		http.Error(w, "Error al renderizar: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	html, err := renderPage(cfg, docList, id, htmlContent)
+	html, err := renderPage(cfg, docList, doc, res)
 	if err != nil {
 		http.Error(w, "Error de template: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -130,7 +146,7 @@ func handlePrint(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error de configuración: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	html, err := renderPrint(cfg, docList)
+	html, err := renderPrint(cfg, docList, PrintPart(r.URL.Query().Get("part")))
 	if err != nil {
 		http.Error(w, "Error de template: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -146,7 +162,7 @@ func handlePDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	pdfBytes, err := GeneratePDF(port)
+	pdfBytes, err := GeneratePDF(baseURL(), cfg)
 	if err != nil {
 		http.Error(w, "Error generando PDF: "+err.Error(), http.StatusInternalServerError)
 		return
