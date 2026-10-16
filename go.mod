@@ -1,15 +1,13 @@
 module github.com/cristianino/mdocs
 
-go 1.24.0
-
-toolchain go1.24.2
+go 1.26.0
 
 require (
 	github.com/chromedp/cdproto v0.0.0-20250319231242-a755498943c8
 	github.com/chromedp/chromedp v0.13.3
 	github.com/spf13/cobra v1.10.2
 	github.com/yuin/goldmark v1.8.6
-	golang.org/x/text v0.34.0
+	golang.org/x/text v0.43.0
 )
 
 require (
