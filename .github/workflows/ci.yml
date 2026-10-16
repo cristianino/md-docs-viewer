@@ -142,11 +142,10 @@ jobs:
           set -uo pipefail
           fail() {
             echo "::error::$1"
-            docker logs m 2>&1 | tail -40 | sed 's/^/::error::container: /'
+            docker logs mdocs-ci 2>&1 | tail -40 | sed 's/^/::error::container: /'
             exit 1
           }
-          docker image ls | sed 's/^/imagen: /'
-          out=$(docker run -d --name m -p 8080:8080 --shm-size=256m -v "$PWD:/work:ro" mdocs:ci 2>&1) || fail "docker run falló: $out"
+          out=$(docker run -d --name mdocs-ci -p 8080:8080 --shm-size=256m -v "$PWD:/work:ro" mdocs:ci 2>&1) || fail "docker run falló: $out"
           ok=0
           for i in $(seq 1 30); do curl -fs localhost:8080/healthz && { ok=1; break; }; sleep 1; done
           [ "$ok" = 1 ] || fail "/healthz no respondió"
@@ -154,5 +153,5 @@ jobs:
           code=$(curl -s -o /tmp/out.pdf -w '%{http_code}' --max-time 120 localhost:8080/pdf)
           [ "$code" = 200 ] || fail "/pdf respondió $code: $(head -c 300 /tmp/out.pdf)"
           head -c 5 /tmp/out.pdf | grep -q '%PDF-' || fail "/pdf no es un PDF"
-          docker rm -f m
+          docker rm -f mdocs-ci
           docker run --rm mdocs:ci-slim --version || fail "slim --version falló"
