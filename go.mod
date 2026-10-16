@@ -1,11 +1,9 @@
 module github.com/cristianino/mdocs
 
-go 1.24.0
-
-toolchain go1.24.2
+go 1.25
 
 require (
-	github.com/chromedp/cdproto v0.0.0-20250319231242-a755498943c8
+	github.com/chromedp/cdproto v0.157.11
 	github.com/chromedp/chromedp v0.13.3
 	github.com/spf13/cobra v1.8.0
 	github.com/yuin/goldmark v1.8.6
@@ -13,8 +11,7 @@ require (
 )
 
 require (
-	github.com/chromedp/sysutil v1.1.0 // indirect
-	github.com/go-json-experiment/json v0.0.0-20250211171154-1ae217ad3535 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260213210345-44df1a37e875 // indirect
 	github.com/gobwas/httphead v0.1.0 // indirect
 	github.com/gobwas/pool v0.2.1 // indirect
 	github.com/gobwas/ws v1.4.0 // indirect
