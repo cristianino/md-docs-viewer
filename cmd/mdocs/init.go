@@ -26,6 +26,7 @@ type initOptions struct {
 	yes           bool
 	force         bool
 	noSample      bool
+	noAgents      bool
 }
 
 func NewInitCmd() *cobra.Command {
@@ -35,7 +36,9 @@ func NewInitCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "init [carpeta]",
 		Short: "Crea un proyecto de documentación nuevo",
-		Long: `Crea brand.config.json, docs.config.json, logo.svg y un documento de ejemplo.
+		Long: `Crea brand.config.json, docs.config.json, logo.svg, AGENTS.md, .gitignore y un
+documento de ejemplo. Los archivos que ya existen (salvo las dos configs con
+--force) no se tocan.
 
 Pregunta los datos fijos (empresa, título, descripción, año y "powered by")
 salvo los que pases por flag. Con --yes no pregunta nada y usa flags o
@@ -67,6 +70,7 @@ por defecto.`,
 	f.BoolVarP(&o.yes, "yes", "y", false, "No preguntar; usar flags y valores por defecto")
 	f.BoolVar(&o.force, "force", false, "Sobrescribir brand.config.json y docs.config.json si existen")
 	f.BoolVar(&o.noSample, "no-sample", false, "No crear el documento de ejemplo")
+	f.BoolVar(&o.noAgents, "no-agents", false, "No crear AGENTS.md (guía para agentes de IA)")
 	return cmd
 }
 
@@ -143,6 +147,10 @@ func runInit(dir string, o initOptions, changed func(string) bool, in io.Reader,
 		return err
 	}
 	fmt.Fprintf(out, "  creado  %s\n", docsPath)
+	if !o.noAgents {
+		writeIfMissing(out, filepath.Join(dir, "AGENTS.md"), assets.AgentsGuide)
+	}
+	writeIfMissing(out, filepath.Join(dir, ".gitignore"), []byte("dist/\n"))
 
 	fmt.Fprintf(out, "\nListo. Siguiente paso:\n")
 	if dir != "." {
@@ -200,7 +208,7 @@ func sampleDoc(cfg *brand.Config) string {
 	if desc == "" {
 		desc = "Escribe aquí la descripción de tu documentación."
 	}
-	return "# " + cfg.DocsTitle + "\n\n" + desc + "\n\n" +
+	return "# Introducción\n\n" + desc + "\n\n" +
 		"## Primeros pasos\n\n" +
 		"- Edita este archivo en `docs/01-introduccion.md`.\n" +
 		"- Registra más documentos con `mdocs add docs/02-guia.md --title \"Guía\"` o editando `docs.config.json`.\n" +

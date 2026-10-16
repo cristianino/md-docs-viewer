@@ -78,7 +78,7 @@ func renderMermaidExport(docList []*docs.Doc) (string, error) {
 }
 
 func handleMermaidExport(w http.ResponseWriter, r *http.Request) {
-	_, docList, err := loadState()
+	_, docList, err := LoadState()
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
@@ -174,7 +174,7 @@ var errNoDiagrams = fmt.Errorf("no se encontraron diagramas Mermaid en los docum
 // --- Handler ---
 
 func handleDrawio(w http.ResponseWriter, r *http.Request) {
-	cfg, docList, err := loadState()
+	cfg, docList, err := LoadState()
 	if err != nil {
 		http.Error(w, "Error de configuración: "+err.Error(), http.StatusInternalServerError)
 		return

@@ -2,6 +2,7 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
 	"path"
@@ -16,10 +17,7 @@ import (
 
 var port int
 
-// Start arranca el servidor HTTP en el puerto indicado.
-func Start(p int) error {
-	port = p
-
+func newMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleRoot)
 	mux.HandleFunc("/logo.svg", handleLogo)
@@ -30,11 +28,28 @@ func Start(p int) error {
 	mux.HandleFunc("/drawio", handleDrawio)
 	mux.HandleFunc("/mermaid-export", handleMermaidExport)
 	mux.HandleFunc("/files/", handleFiles)
+	return mux
+}
 
+// Start arranca el servidor HTTP en el puerto indicado.
+func Start(p int) error {
+	port = p
 	cfg, _ := brand.Load("brand.config.json")
 	printBanner(cfg, p)
+	return http.ListenAndServe(fmt.Sprintf(":%d", p), newMux())
+}
 
-	return http.ListenAndServe(fmt.Sprintf(":%d", p), mux)
+// Ephemeral arranca el servidor en un puerto libre de 127.0.0.1 (para
+// generar PDF/draw.io desde la CLI) y devuelve su URL base y cómo pararlo.
+func Ephemeral() (string, func(), error) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", nil, err
+	}
+	port = ln.Addr().(*net.TCPAddr).Port
+	srv := &http.Server{Handler: newMux()}
+	go srv.Serve(ln)
+	return baseURL(), func() { srv.Close() }, nil
 }
 
 func baseURL() string { return fmt.Sprintf("http://localhost:%d", port) }
@@ -50,7 +65,8 @@ func handleFiles(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, filepath.FromSlash(rel))
 }
 
-func loadState() (*brand.Config, []*docs.Doc, error) {
+// LoadState lee brand.config.json y docs.config.json de la carpeta actual.
+func LoadState() (*brand.Config, []*docs.Doc, error) {
 	cfg, err := brand.Load("brand.config.json")
 	if err != nil {
 		return nil, nil, err
@@ -67,7 +83,7 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	_, docList, err := loadState()
+	_, docList, err := LoadState()
 	if err != nil || len(docList) == 0 {
 		http.Error(w, "No hay documentos configurados.", http.StatusNotFound)
 		return
@@ -97,7 +113,7 @@ func handleDoc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, docList, err := loadState()
+	cfg, docList, err := LoadState()
 	if err != nil {
 		http.Error(w, "Error de configuración: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -136,7 +152,7 @@ func handleDoc(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePrint(w http.ResponseWriter, r *http.Request) {
-	cfg, docList, err := loadState()
+	cfg, docList, err := LoadState()
 	if err != nil {
 		http.Error(w, "Error de configuración: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -151,7 +167,7 @@ func handlePrint(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePDF(w http.ResponseWriter, r *http.Request) {
-	cfg, _, err := loadState()
+	cfg, _, err := LoadState()
 	if err != nil {
 		http.Error(w, "Error de configuración: "+err.Error(), http.StatusInternalServerError)
 		return

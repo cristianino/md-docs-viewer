@@ -9,3 +9,6 @@ var MermaidJS []byte
 
 //go:embed logo.svg
 var DefaultLogo []byte
+
+//go:embed AGENTS.md
+var AgentsGuide []byte
