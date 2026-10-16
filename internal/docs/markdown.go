@@ -2,8 +2,11 @@ package docs
 
 import (
 	"bytes"
+	"fmt"
+	stdhtml "html"
 	"net/url"
 	"path"
+	"regexp"
 	"strings"
 
 	"github.com/yuin/goldmark"
@@ -48,6 +51,11 @@ type Options struct {
 	Doc *Doc
 	// All es la lista completa, usada para resolver enlaces entre documentos.
 	All []*Doc
+	// Base es el prefijo de las URLs absolutas (p. ej. "/docs" detrás de un
+	// proxy o en un sitio estático). Vacío = raíz.
+	Base string
+	// Slash agrega "/" al final de /doc/{id} (sitio estático: doc/{id}/index.html).
+	Slash bool
 	// DropTitle elimina el primer H1 si coincide con el título del documento
 	// (en el PDF el título ya aparece en la cabecera de la sección).
 	DropTitle bool
@@ -120,8 +128,65 @@ func Render(source []byte, opt Options) (*Result, error) {
 	if err := md.Renderer().Render(&buf, source, doc); err != nil {
 		return nil, err
 	}
-	res.HTML = buf.String()
+	res.HTML = reTOCMarker.ReplaceAllLiteralString(buf.String(), TOCHTML(res.Headings, 3))
 	return res, nil
+}
+
+// reTOCMarker encuentra un párrafo que solo contiene [TOC] (o [[TOC]],
+// sin distinguir mayúsculas).
+var reTOCMarker = regexp.MustCompile(`(?i)<p>\s*\[\[?toc\]?\]\s*</p>`)
+
+// TOCHTML genera una tabla de contenido anidada con los títulos del
+// documento hasta maxLevel. Omite el título principal (el primer H1).
+func TOCHTML(headings []Heading, maxLevel int) string {
+	var items []Heading
+	for i, h := range headings {
+		if i == 0 && h.Level == 1 {
+			continue
+		}
+		if h.Level <= maxLevel && h.ID != "" {
+			items = append(items, h)
+		}
+	}
+	if len(items) == 0 {
+		return ""
+	}
+	base := items[0].Level
+	for _, h := range items {
+		if h.Level < base {
+			base = h.Level
+		}
+	}
+	var b strings.Builder
+	b.WriteString(`<nav class="md-toc" aria-label="Tabla de contenido"><ul>`)
+	depth := 0
+	for i, h := range items {
+		lvl := h.Level - base
+		if lvl < 0 {
+			lvl = 0
+		}
+		switch {
+		case i == 0:
+		case lvl > depth:
+			for ; depth < lvl; depth++ {
+				b.WriteString("<ul>")
+			}
+		case lvl < depth:
+			for ; depth > lvl; depth-- {
+				b.WriteString("</li></ul>")
+			}
+			b.WriteString("</li>")
+		default:
+			b.WriteString("</li>")
+		}
+		depth = lvl
+		fmt.Fprintf(&b, `<li><a href="#%s">%s</a>`, stdhtml.EscapeString(h.ID), stdhtml.EscapeString(h.Text))
+	}
+	for ; depth > 0; depth-- {
+		b.WriteString("</li></ul>")
+	}
+	b.WriteString("</li></ul></nav>")
+	return b.String()
 }
 
 // AnchorPrefix es el prefijo de los ids de un documento dentro del PDF.
@@ -196,7 +261,10 @@ func rewriteLink(dest string, opt Options) string {
 	if opt.Doc != nil && target.ID == opt.Doc.ID && !strings.Contains(dest, ".md") && !strings.HasPrefix(dest, "/doc/") {
 		return dest // ancla en el mismo documento
 	}
-	out := "/doc/" + target.ID
+	out := opt.Base + "/doc/" + target.ID
+	if opt.Slash {
+		out += "/"
+	}
 	if frag != "" {
 		out += "#" + frag
 	}
@@ -213,7 +281,7 @@ func rewriteAsset(dest string, opt Options) string {
 	if opt.Doc != nil {
 		base = path.Dir(toSlash(opt.Doc.File))
 	}
-	return "/files/" + path.Clean(path.Join(base, toSlash(dest)))
+	return opt.Base + "/files/" + path.Clean(path.Join(base, toSlash(dest)))
 }
 
 func toSlash(p string) string { return strings.ReplaceAll(p, "\\", "/") }

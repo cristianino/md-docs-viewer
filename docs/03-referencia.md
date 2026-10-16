@@ -2,7 +2,9 @@
 
 > Reemplaza este archivo con tu documentación técnica, referencia de API o guía avanzada.
 
-Esta sección demuestra todas las funcionalidades de formato soportadas por el visor.
+Esta sección demuestra todas las funcionalidades de formato soportadas por el visor. El bloque siguiente se genera escribiendo `[TOC]` en una línea sola:
+
+[TOC]
 
 ## Diagramas Mermaid
 

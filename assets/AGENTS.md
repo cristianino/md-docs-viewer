@@ -23,6 +23,7 @@ mdocs remove <id>           # quitar del índice (no borra el .md)
 mdocs list --json           # documentos registrados
 mdocs build all --json      # generar dist/*.pdf y dist/*.drawio (no requiere serve)
 mdocs build drawio --mode image   # forzar diagramas como imagen
+mdocs export -o site --base-path /docs --json   # sitio estático para publicar
 ```
 
 Todos aceptan `-C <carpeta>` para trabajar en otro directorio y `--chrome <ruta>`
@@ -32,7 +33,8 @@ stderr y stdout queda solo con JSON.
 ## Reglas al escribir Markdown
 
 - Un `# Título` por archivo, igual al `title` de `docs.config.json` (en el PDF se omite porque la cabecera ya lo muestra).
-- Los `##` entran al índice del PDF; `###`–`######` quedan en los marcadores.
+- Los `##` entran al índice del PDF y al índice general del visor (`/indice`); `###` también aparece en «En esta página»; todo queda en los marcadores del PDF.
+- Escribe `[TOC]` en una línea sola para insertar la tabla de contenido del documento (web y PDF).
 - Enlaces entre documentos: usa la ruta relativa al `.md` (`[ver](02-guia.md#paso-1)`); funcionan en la web y en el PDF.
 - Las anclas siguen el estilo GitHub: minúsculas, espacios → `-`, se quitan signos (`¿Cómo funciona?` → `#cómo-funciona`). Consulta las reales con `mdocs context`.
 - Imágenes relativas al `.md` (`![x](img/diagrama.png)`).

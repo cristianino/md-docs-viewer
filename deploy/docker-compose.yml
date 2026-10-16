@@ -1,0 +1,15 @@
+# VPS con Docker: la documentación vive en ./ (montada en /work, solo lectura).
+#   docker build -t mdocs /ruta/a/md-docs-viewer
+#   docker compose -f deploy/docker-compose.yml up -d
+services:
+  mdocs:
+    image: mdocs            # o mdocs:slim con MDOCS_EXPORTS=static (sin Chrome)
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:8080:8080"   # expuesto solo al proxy (nginx/Caddy) del host
+    volumes:
+      - ../:/work:ro
+    environment:
+      MDOCS_EXPORTS: live       # live | static | off
+      MDOCS_BASE_PATH: ""       # p. ej. /docs si el proxy publica en un subpath
+    shm_size: "256m"            # Chrome usa /dev/shm al generar el PDF
