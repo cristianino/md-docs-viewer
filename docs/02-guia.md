@@ -2,6 +2,8 @@
 
 > Reemplaza este archivo con tu guía de implementación, tutorial o proceso.
 
+Antes de empezar, revisa [cómo funciona el visor](01-introduccion.md#cómo-funciona). Los enlaces entre archivos `.md` funcionan en la web y dentro del PDF.
+
 Esta sección muestra cómo estructurar una guía paso a paso con instrucciones, código y listas de verificación.
 
 ## Paso 1 — Compilar el binario
@@ -23,7 +25,7 @@ go build -o mdocs .
 Reemplaza el archivo `logo.svg` con el logo de tu empresa y ejecuta el subcomando de generación de estilos:
 
 ```bash
-./mdocs generate-styles
+mdocs generate-styles
 ```
 
 El comando detectará automáticamente los colores del logo y actualizará `brand.config.json`.
@@ -66,7 +68,7 @@ Edita `docs.config.json` para listar tus documentos en el orden que quieres que 
 ## Paso 4 — Iniciar el servidor
 
 ```bash
-./mdocs serve
+mdocs serve
 ```
 
 Abre tu navegador en `http://localhost:3000`.
@@ -76,10 +78,12 @@ Abre tu navegador en `http://localhost:3000`.
 ## Lista de verificación
 
 - [ ] Binario compilado (`go build -o mdocs .`)
+- [ ] Proyecto inicializado (`mdocs init`)
 - [ ] Logo reemplazado (`logo.svg`)
-- [ ] Colores generados (`./mdocs generate-styles`)
+- [ ] Colores generados (`mdocs generate-styles`)
 - [ ] `brand.config.json` revisado
-- [ ] Documentos registrados en `docs.config.json`
+- [ ] Documentos registrados (`mdocs add` o `docs.config.json`)
+- [ ] Proyecto validado (`mdocs check`)
 - [ ] Archivos `.md` creados en `docs/`
 - [ ] Servidor iniciado correctamente
 
@@ -87,9 +91,11 @@ Abre tu navegador en `http://localhost:3000`.
 
 > **Tip:** Para cambiar el puerto del servidor usa el flag `--port` o la variable de entorno `PORT`:
 > ```bash
-> ./mdocs serve --port 8080
+> mdocs serve --port 8080
 > # o bien
-> PORT=8080 ./mdocs serve
+> PORT=8080 mdocs serve
 > ```
+
+Para generar el PDF y el `.drawio` sin abrir el navegador usa `mdocs build` (los deja en `dist/`).
 
 El servidor re-lee los archivos `.md` y las templates en cada request, por lo que puedes editar el contenido en caliente sin reiniciar.

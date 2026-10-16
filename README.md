@@ -1,177 +1,75 @@
-# md-docs-viewer
+# mdocs
 
-Visor de documentación Markdown con identidad corporativa dinámica. Convierte archivos `.md` en un sitio web navegable con los colores y el logo de tu empresa, y permite exportar todo el contenido a un PDF bien estructurado.
+Documentación a partir de archivos Markdown, pensada para personas y para agentes de IA. Un solo binario convierte tus `.md` en:
 
-## Características
+- **Un sitio web** con la identidad de tu empresa (colores tomados del logo).
+- **Un PDF navegable**: portada, índice con enlaces y números de página, marcadores laterales, pie con «página / total» y enlaces entre documentos que funcionan dentro del PDF.
+- **Un `.drawio`** con los diagramas Mermaid como **formas editables** (flowchart, sequence, state, class). Los demás tipos se exportan como imagen.
 
-- Renderizado de Markdown con estilos corporativos
-- Sidebar de navegación con lista de documentos
-- Identidad visual extraída automáticamente del logo SVG
-- Soporte para diagramas Mermaid (flujos, secuencias, etc.)
-- Tablas, bloques de código, blockquotes y listas de tareas
-- Generación de PDF en un clic (portada + índice + documentos)
-- Configuración centralizada en dos archivos JSON
+Funciona sin conexión: Mermaid y las plantillas van embebidas en el binario.
 
 ## Requisitos
 
-- [Go 1.22+](https://go.dev/dl/)
-- [Chrome o Chromium](https://www.chromium.org/getting-involved/download-chromium/) (solo para generación de PDF)
+- [Go 1.24+](https://go.dev/dl/) para compilar.
+- Chrome o Chromium, solo para generar el PDF y el `.drawio`. Si no se detecta solo, usa `--chrome <ruta>` o la variable `MDOCS_CHROME`.
 
 ## Inicio rápido
 
-### 1. Compilar el binario
-
 ```bash
-go build -o mdocs .
+go build -o mdocs .            # en Windows: go build -o mdocs.exe .
+
+mdocs init mi-portal           # pregunta empresa, título, descripción, año y "powered by" (no por defecto)
+cd mi-portal
+mdocs add docs/02-guia.md --title "Guía"
+mdocs serve                    # http://localhost:3000
+mdocs build                    # dist/*.pdf y dist/*.drawio
 ```
 
-### 2. Reemplazar el logo
-
-Coloca el logo de tu empresa en la raíz del proyecto como `logo.svg`.
-
-### 3. Extraer colores del logo
+Sin preguntas (scripts e IAs):
 
 ```bash
-./mdocs generate-styles
+mdocs init --yes --company "Acme" --title "Manual técnico" --description "API interna" --year 2026
 ```
 
-Detecta automáticamente los colores de `logo.svg` y actualiza `brand.config.json`.
+## Comandos
 
-### 4. Ajustar la identidad corporativa
+| Comando | Para qué |
+|---|---|
+| `mdocs init [carpeta]` | Crea la configuración, `logo.svg`, un documento de ejemplo y `AGENTS.md` |
+| `mdocs serve [-p 3000]` | Visor web con recarga en caliente de `.md` y plantillas |
+| `mdocs build [pdf\|drawio\|all] [-o dist] [--mode auto\|image]` | Genera los archivos sin necesidad de `serve` |
+| `mdocs add <archivo.md>` | Registra un documento (y lo crea si no existe) |
+| `mdocs remove <id>` | Lo quita del índice (no borra el archivo) |
+| `mdocs list` | Lista los documentos registrados |
+| `mdocs check [--strict]` | Valida archivos, ids, enlaces, anclas e imágenes (exit 1 si hay errores) |
+| `mdocs context` | Resume el proyecto (títulos, anclas, diagramas, problemas) |
+| `mdocs agents` | Escribe `AGENTS.md` con las reglas para agentes de IA |
+| `mdocs generate-styles` | Toma los colores de `logo.svg` y los guarda en `brand.config.json` |
 
-Edita `brand.config.json` para afinar nombre, título, año y atribución:
+Flags globales: `-C <carpeta>` para trabajar en otro directorio y `--chrome <ruta>` para indicar Chrome. `list`, `check`, `context` y `build` aceptan `--json`.
+
+## Configuración
+
+`brand.config.json` (lo crea `mdocs init`):
 
 ```json
 {
   "primaryColor": "#1a2035",
   "accentColor": "#0066cc",
-  "companyName": "Mi Empresa S.A.",
+  "companyName": "Mi Empresa",
   "docsTitle": "Portal de Documentación",
+  "description": "Descripción corta para la portada del PDF",
   "docsYear": "2026",
   "poweredBy": false
 }
 ```
 
-### 5. Registrar documentos
+`docs.config.json` es la lista ordenada de documentos (`id`, `file`, `title`, `subtitle`). Lo mantienen `mdocs add` y `mdocs remove`.
 
-Edita `docs.config.json` para listar tus archivos Markdown:
+## Más información
 
-```json
-[
-  {
-    "id": "overview",
-    "file": "docs/overview.md",
-    "title": "Visión general",
-    "subtitle": "Arquitectura y conceptos clave"
-  }
-]
-```
-
-### 6. Crear los archivos de contenido
-
-Agrega tus archivos `.md` en la carpeta `docs/`.
-
-### 7. Iniciar el servidor
-
-```bash
-./mdocs serve
-```
-
-Abre `http://localhost:3000` en tu navegador.
-
----
-
-## Configuración
-
-### `brand.config.json`
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `primaryColor` | `string` | Color principal — sidebar, cabeceras, títulos |
-| `accentColor` | `string` | Color de acento — links, botones, bordes activos |
-| `companyName` | `string` | Nombre de la empresa |
-| `docsTitle` | `string` | Subtítulo bajo el logo |
-| `docsYear` | `string` | Año mostrado en el footer |
-| `poweredBy` | `boolean` | Muestra "Powered by Laratec SAS" en el PDF (default: `false`) |
-
-### `docs.config.json`
-
-| Campo | Tipo | Descripción |
-|---|---|---|
-| `id` | `string` | Identificador único para la URL (`/doc/{id}`) |
-| `file` | `string` | Ruta al archivo `.md` relativa a la raíz del proyecto |
-| `title` | `string` | Título mostrado en la barra lateral |
-| `subtitle` | `string` | Subtítulo descriptivo en la barra lateral |
-
----
-
-## Comandos
-
-| Comando | Descripción |
-|---|---|
-| `./mdocs serve` | Inicia el servidor en `http://localhost:3000` |
-| `./mdocs serve --port 8080` | Inicia en un puerto específico |
-| `./mdocs generate-styles` | Extrae colores de `logo.svg` y actualiza `brand.config.json` |
-| `./mdocs --help` | Muestra la ayuda |
-
-También puedes usar la variable de entorno `PORT`:
-
-```bash
-PORT=8080 ./mdocs serve
-```
-
----
-
-## Generación de PDF
-
-El botón **Descargar PDF** en la barra lateral genera un PDF A4 con:
-
-- **Portada** — logo, nombre de empresa, título y fecha
-- **Índice** — listado numerado de todos los documentos
-- **Secciones** — cada documento con encabezado corporativo y salto de página
-
-El archivo se descarga con el nombre `{empresa}-{titulo}-{fecha}.pdf`.
-
-> El servidor re-lee los archivos `.md` y las templates en cada request, por lo que puedes editar el contenido en caliente sin reiniciar.
-
----
-
-## Estructura del proyecto
-
-```
-proyecto/
-├── main.go                    ← Entry point
-├── go.mod / go.sum
-├── cmd/mdocs/
-│   ├── root.go                ← CLI Cobra
-│   ├── serve.go               ← Subcomando serve
-│   └── styles.go              ← Subcomando generate-styles
-├── internal/
-│   ├── brand/                 ← Configuración y extracción de colores
-│   ├── docs/                  ← Carga de docs y renderizado Markdown
-│   └── server/                ← Servidor HTTP y generación de PDF
-├── templates/
-│   ├── page.gohtml            ← Template HTML del visor
-│   └── print.gohtml           ← Template HTML para PDF
-├── docs/
-│   └── *.md                   ← Archivos de contenido
-├── brand.config.json          ← Colores e identidad corporativa
-├── docs.config.json           ← Registro de documentos
-└── logo.svg                   ← Logo de la empresa (reemplazar)
-```
-
----
-
-## Stack técnico
-
-- [Go](https://go.dev/) — lenguaje y servidor HTTP (`net/http`)
-- [Cobra](https://github.com/spf13/cobra) — framework CLI
-- [goldmark](https://github.com/yuin/goldmark) — parser de Markdown (GFM)
-- [chromedp](https://github.com/chromedp/chromedp) — generación de PDF via Chrome headless
-- [Mermaid](https://mermaid.js.org/) — diagramas en el navegador (CDN)
-
----
+Cada comando, la exportación a PDF y draw.io, las plantillas y la guía para IAs están explicados en la [wiki](https://github.com/cristianino/md-docs-viewer/wiki).
 
 ## Licencia
 
-MIT — ver [LICENSE](LICENSE)
+MIT. Ver [LICENSE](LICENSE).

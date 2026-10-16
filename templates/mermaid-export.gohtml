@@ -5,14 +5,9 @@
 <style>
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { background: white; }
-.diag-box {
-  display: inline-block;
-  background: white;
-  padding: 20px;
-  width: 840px;
-}
+.diag-box { display: inline-block; background: white; padding: 20px; }
 </style>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+<script src="/assets/mermaid.min.js"></script>
 </head>
 <body>
 {{range .Blocks}}
@@ -20,17 +15,266 @@ body { background: white; }
 <pre id="mcode-{{.Index}}" style="display:none">{{.Code}}</pre>
 {{end}}
 <script>
-mermaid.initialize({ startOnLoad: false, theme: 'default' });
+/*
+ * Renderiza cada bloque Mermaid y extrae su geometría para exportarlo a
+ * draw.io con formas nativas. El resultado queda en window.__exports[i]:
+ *   {kind: 'graph'|'sequence'|'image', type, width, height, nodes, clusters, edges, rects, lines, texts}
+ * Las coordenadas están en píxeles del SVG a tamaño natural.
+ */
+mermaid.initialize({ startOnLoad: false, theme: 'default', securityLevel: 'loose',
+  flowchart: { htmlLabels: true, useMaxWidth: false },
+  sequence: { useMaxWidth: false }, state: { useMaxWidth: false }, class: { useMaxWidth: false } });
+
 window.__diagramCount = {{len .Blocks}};
+window.__exports = [];
+
+function textOf(el) {
+  if (!el) return '';
+  // conservar saltos de línea de <br> y de líneas (tspan/div)
+  var parts = [];
+  var walk = function(n) {
+    if (n.nodeType === 3) { parts.push(n.nodeValue); return; }
+    if (n.nodeType !== 1) return;
+    var tag = n.tagName.toLowerCase();
+    if (tag === 'br') { parts.push('\n'); return; }
+    var block = (tag === 'tspan' && parts.length) || tag === 'div' || tag === 'p';
+    if (block && parts.length && parts[parts.length-1] !== '\n') parts.push('\n');
+    for (var c = n.firstChild; c; c = c.nextSibling) walk(c);
+  };
+  walk(el);
+  return parts.join('').replace(/[ \t]+/g, ' ').replace(/ *\n */g, '\n').trim();
+}
+
+function prepare(svg) {
+  var vb = svg.viewBox && svg.viewBox.baseVal;
+  if (vb && vb.width) {
+    svg.removeAttribute('style');
+    svg.setAttribute('width', vb.width);
+    svg.setAttribute('height', vb.height);
+  }
+  var r = svg.getBoundingClientRect();
+  return { ox: r.left, oy: r.top, w: r.width, h: r.height };
+}
+
+function box(el, o) {
+  var r = el.getBoundingClientRect();
+  return { x: r.left - o.ox, y: r.top - o.oy, w: r.width, h: r.height };
+}
+
+function colors(el) {
+  if (!el) return {};
+  var cs = getComputedStyle(el);
+  var c = function(v) { return (!v || v === 'none' || v.indexOf('url(') === 0) ? '' : v; };
+  return { fill: c(cs.fill), stroke: c(cs.stroke) };
+}
+
+function svgPoint(svg, el, x, y, o) {
+  var p = svg.createSVGPoint(); p.x = x; p.y = y;
+  var s = p.matrixTransform(el.getScreenCTM());
+  return { x: s.x - o.ox, y: s.y - o.oy };
+}
+
+function pathPoints(svg, path, n, o) {
+  var len = path.getTotalLength(); var pts = [];
+  for (var i = 0; i <= n; i++) {
+    var p = path.getPointAtLength(len * i / n);
+    var m = path.getScreenCTM();
+    var sp = svg.createSVGPoint(); sp.x = p.x; sp.y = p.y;
+    var s = sp.matrixTransform(m);
+    pts.push([s.x - o.ox, s.y - o.oy]);
+  }
+  return pts;
+}
+
+function shapeOf(node) {
+  var el = node.querySelector('rect, circle, ellipse, polygon, path');
+  if (!el) return { shape: 'rect', el: null };
+  var tag = el.tagName.toLowerCase();
+  if (tag === 'circle' || tag === 'ellipse') {
+    return { shape: node.querySelectorAll('circle').length > 1 ? 'doublecircle' : 'circle', el: el };
+  }
+  if (tag === 'rect') {
+    var rx = parseFloat(el.getAttribute('rx') || '0');
+    return { shape: rx > 0 ? 'round' : 'rect', el: el };
+  }
+  if (tag === 'polygon') {
+    var n = (el.getAttribute('points') || '').trim().split(/\s+/).length;
+    return { shape: n === 4 ? 'diamond' : (n === 6 ? 'hexagon' : 'rect'), el: el };
+  }
+  return { shape: 'rect', el: el };
+}
+
+function dashArray(cs) {
+  var d = (cs.strokeDasharray || '').trim();
+  return d !== '' && d !== 'none' && !/^0(px)?$/.test(d);
+}
+
+function arrowKind(marker) {
+  if (!marker) return 'none';
+  if (/cross/i.test(marker)) return 'cross';
+  if (/circle/i.test(marker)) return 'oval';
+  if (/arrowhead|pointEnd|pointStart|filled-head|Head|Arrow|arrow/i.test(marker)) return 'block';
+  return 'block';
+}
+
+// Flujos, estados y clases: nodos + aristas (layout dagre).
+function extractGraph(svg, type, vertices) {
+  var o = prepare(svg);
+  var out = { kind: 'graph', type: type, width: o.w, height: o.h, nodes: [], clusters: [], edges: [] };
+  var nodeEls = Array.prototype.slice.call(svg.querySelectorAll('g.node'));
+  nodeEls.forEach(function(g, i) {
+    var id = g.getAttribute('data-id') || g.id || ('n' + i);
+    var m = /^(?:flowchart|state|classId)-(.+)-\d+$/.exec(g.id || '');
+    if (!g.getAttribute('data-id') && m) id = m[1];
+    var s = shapeOf(g);
+    var shape = s.shape;
+    if (vertices && vertices[id] && vertices[id].type) shape = vertices[id].type;
+    var label = g.querySelector('.label, .nodeLabel, text');
+    var lines = [];
+    if (type.indexOf('class') === 0) {
+      g.querySelectorAll('.label > g, .label foreignObject, text').forEach(function(t) {
+        var v = textOf(t); if (v && lines.indexOf(v) < 0) lines.push(v);
+      });
+    }
+    var b = box(s.el || g, o);
+    var c = colors(s.el);
+    out.nodes.push({ id: id, label: lines.length ? lines.join('\n') : textOf(label), x: b.x, y: b.y, w: b.w, h: b.h,
+      shape: shape, fill: c.fill, stroke: c.stroke, classLike: type.indexOf('class') === 0,
+      fontSize: label ? (parseFloat(getComputedStyle(label).fontSize) || 14) : 14 });
+  });
+  svg.querySelectorAll('g.cluster').forEach(function(g, i) {
+    var rect = g.querySelector('rect');
+    if (!rect) return;
+    var b = box(rect, o); var c = colors(rect);
+    out.clusters.push({ id: g.id || ('c' + i), label: textOf(g.querySelector('.cluster-label, .label, text')),
+      x: b.x, y: b.y, w: b.w, h: b.h, fill: c.fill, stroke: c.stroke });
+  });
+  var paths = Array.prototype.slice.call(svg.querySelectorAll('g.edgePaths path, path.transition, path.relation, path.flowchart-link'));
+  paths = paths.filter(function(p, i) { return paths.indexOf(p) === i; });
+  var labels = Array.prototype.slice.call(svg.querySelectorAll('g.edgeLabels g.edgeLabel, g.edgeLabel'));
+  labels = labels.filter(function(l, i) { return labels.indexOf(l) === i && !l.parentElement.closest('g.edgeLabel'); });
+  var nearest = function(pt) {
+    var best = null, bd = 1e9;
+    out.nodes.forEach(function(n) {
+      var dx = Math.max(n.x - pt[0], 0, pt[0] - (n.x + n.w));
+      var dy = Math.max(n.y - pt[1], 0, pt[1] - (n.y + n.h));
+      var d = Math.sqrt(dx * dx + dy * dy);
+      if (d < bd) { bd = d; best = n; }
+    });
+    return best ? best.id : null;
+  };
+  paths.forEach(function(p, i) {
+    var pts = pathPoints(svg, p, 8, o);
+    var cls = p.getAttribute('class') || '';
+    var ls = /(?:^|\s)LS-(\S+)/.exec(cls), le = /(?:^|\s)LE-(\S+)/.exec(cls);
+    var src = ls ? ls[1] : nearest(pts[0]);
+    var dst = le ? le[1] : nearest(pts[pts.length - 1]);
+    var label = '';
+    if (labels.length === paths.length) label = textOf(labels[i]);
+    var cs = getComputedStyle(p);
+    out.edges.push({ source: src, target: dst, label: label, points: pts,
+      startArrow: arrowKind(p.getAttribute('marker-start')),
+      endArrow: arrowKind(p.getAttribute('marker-end')),
+      dashed: /edge-pattern-(dotted|dashed)|dashed-line|dotted-line/.test(cls) || dashArray(cs),
+      thick: /thick/.test(cls), stroke: colors(p).stroke });
+  });
+  if (labels.length && labels.length !== paths.length) {
+    // asignar etiquetas por cercanía al punto medio de cada arista
+    labels.forEach(function(l) {
+      var t = textOf(l); if (!t) return;
+      var b = box(l, o); var c = [b.x + b.w / 2, b.y + b.h / 2];
+      var best = null, bd = 1e9;
+      out.edges.forEach(function(e) {
+        var mid = e.points[Math.floor(e.points.length / 2)];
+        var d = Math.hypot(mid[0] - c[0], mid[1] - c[1]);
+        if (d < bd && !e.label) { bd = d; best = e; }
+      });
+      if (best) best.label = t;
+    });
+  }
+  return out;
+}
+
+// Secuencias: primitivas (cajas, líneas y textos) con posición absoluta.
+function extractSequence(svg, type) {
+  var o = prepare(svg);
+  var out = { kind: 'sequence', type: type, width: o.w, height: o.h, rects: [], lines: [], texts: [] };
+  var texts = Array.prototype.slice.call(svg.querySelectorAll('text')).filter(function(t) {
+    return !t.closest('defs, marker') && textOf(t);
+  });
+  var used = new Set();
+  var inside = function(t, b) {
+    var r = box(t, o); var cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+    return cx >= b.x && cx <= b.x + b.w && cy >= b.y && cy <= b.y + b.h;
+  };
+  svg.querySelectorAll('rect, polygon.labelBox').forEach(function(r) {
+    if (r.closest('defs, marker')) return;
+    var b = box(r, o);
+    if (b.w < 1 || b.h < 1) return;
+    var cls = r.getAttribute('class') || '';
+    var c = colors(r);
+    if (!c.fill && !c.stroke) return;
+    var label = [];
+    texts.forEach(function(t) {
+      if (!used.has(t) && inside(t, b)) { label.push(textOf(t)); used.add(t); }
+    });
+    out.rects.push({ x: b.x, y: b.y, w: b.w, h: b.h, label: label.join('\n'), cls: cls,
+      fill: c.fill, stroke: c.stroke, rounded: parseFloat(r.getAttribute('rx') || '0') > 0 });
+  });
+  svg.querySelectorAll('line').forEach(function(l) {
+    if (l.closest('defs, marker')) return;
+    var p1 = svgPoint(svg, l, +l.getAttribute('x1'), +l.getAttribute('y1'), o);
+    var p2 = svgPoint(svg, l, +l.getAttribute('x2'), +l.getAttribute('y2'), o);
+    var cs = getComputedStyle(l);
+    var cls = l.getAttribute('class') || '';
+    out.lines.push({ points: [[p1.x, p1.y], [p2.x, p2.y]], cls: cls,
+      endArrow: arrowKind(l.getAttribute('marker-end')), startArrow: arrowKind(l.getAttribute('marker-start')),
+      dashed: dashArray(cs) || /messageLine1|loopLine/.test(cls),
+      stroke: colors(l).stroke, width: parseFloat(cs.strokeWidth) || 1 });
+  });
+  svg.querySelectorAll('path.messageLine0, path.messageLine1').forEach(function(p) {
+    var cls = p.getAttribute('class') || '';
+    out.lines.push({ points: pathPoints(svg, p, 6, o), cls: cls,
+      endArrow: arrowKind(p.getAttribute('marker-end')), startArrow: 'none',
+      dashed: /messageLine1/.test(cls), stroke: colors(p).stroke, width: 1 });
+  });
+  texts.forEach(function(t) {
+    if (used.has(t)) return;
+    var b = box(t, o);
+    out.texts.push({ x: b.x, y: b.y, w: b.w, h: b.h, text: textOf(t), cls: t.getAttribute('class') || '',
+      fontSize: parseFloat(getComputedStyle(t).fontSize) || 12 });
+  });
+  return out;
+}
+
 document.addEventListener('DOMContentLoaded', async function() {
   for (var i = 1; i <= window.__diagramCount; i++) {
+    var code = document.getElementById('mcode-' + i).textContent.trim();
+    var exp = { kind: 'image', type: 'unknown' };
     try {
-      var code = document.getElementById('mcode-' + i).textContent.trim();
       var result = await mermaid.render('svg-' + i, code);
-      document.getElementById('diag-' + i).innerHTML = result.svg;
-    } catch(e) {
+      var holder = document.getElementById('diag-' + i);
+      holder.innerHTML = result.svg;
+      var svg = holder.querySelector('svg');
+      var type = 'unknown', vertices = null;
+      try {
+        var diagram = await mermaid.mermaidAPI.getDiagramFromText(code);
+        type = diagram.type || 'unknown';
+        if (diagram.db && diagram.db.getVertices) vertices = diagram.db.getVertices();
+      } catch (e) { console.warn('parse', e); }
+      exp.type = type;
+      try {
+        if (/^flowchart|^graph|^state|^class/.test(type)) exp = extractGraph(svg, type, vertices);
+        else if (type === 'sequence') exp = extractSequence(svg, type);
+      } catch (e) {
+        console.error('extract ' + i, e);
+        exp = { kind: 'image', type: type };
+      }
+    } catch (e) {
       console.error('Mermaid error diagram ' + i + ':', e);
+      exp = { kind: 'error', type: 'unknown', error: String(e && e.message || e) };
     }
+    window.__exports.push(exp);
   }
   window.__diagramsDone = true;
 });

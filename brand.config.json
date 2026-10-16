@@ -3,6 +3,7 @@
   "accentColor": "#746ccb",
   "companyName": "Mi Empresa",
   "docsTitle": "Documentación",
+  "description": "Ejemplo de documentación generada con mdocs",
   "docsYear": "2026",
   "poweredBy": false
 }

@@ -1,2 +1,11 @@
 node_modules
 .claude
+
+# binaries
+/mdocs
+/mdocs.exe
+
+# build output
+/dist/
+*.pdf
+*.drawio

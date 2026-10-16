@@ -16,12 +16,12 @@ type color struct {
 }
 
 var (
-	reFillAttr    = regexp.MustCompile(`\bfill="(#[0-9a-fA-F]{3,6})"`)
-	reStrokeAttr  = regexp.MustCompile(`\bstroke="(#[0-9a-fA-F]{3,6})"`)
-	reFillCSS     = regexp.MustCompile(`\bfill:\s*(#[0-9a-fA-F]{3,6})`)
-	reStrokeCSS   = regexp.MustCompile(`\bstroke:\s*(#[0-9a-fA-F]{3,6})`)
-	reStopAttr    = regexp.MustCompile(`\bstop-color="(#[0-9a-fA-F]{3,6})"`)
-	reStopCSS     = regexp.MustCompile(`\bstop-color:\s*(#[0-9a-fA-F]{3,6})`)
+	reFillAttr   = regexp.MustCompile(`\bfill="(#[0-9a-fA-F]{3,6})"`)
+	reStrokeAttr = regexp.MustCompile(`\bstroke="(#[0-9a-fA-F]{3,6})"`)
+	reFillCSS    = regexp.MustCompile(`\bfill:\s*(#[0-9a-fA-F]{3,6})`)
+	reStrokeCSS  = regexp.MustCompile(`\bstroke:\s*(#[0-9a-fA-F]{3,6})`)
+	reStopAttr   = regexp.MustCompile(`\bstop-color="(#[0-9a-fA-F]{3,6})"`)
+	reStopCSS    = regexp.MustCompile(`\bstop-color:\s*(#[0-9a-fA-F]{3,6})`)
 )
 
 func hexToRGB(hex string) (r, g, b float64, ok bool) {
@@ -183,4 +183,10 @@ func ExtractAndSave(logoPath, configPath string) error {
 	}
 	fmt.Printf("\n✓ brand.config.json actualizado\n")
 	return nil
+}
+
+// ColorsFromSVG devuelve los colores primario y de acento detectados en un SVG.
+func ColorsFromSVG(svg []byte) (primary, accent string) {
+	main, gradient := extractColors(string(svg))
+	return pickColors(main, gradient)
 }

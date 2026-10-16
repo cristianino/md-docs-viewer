@@ -4,7 +4,8 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{.ActiveDoc.Title}} — {{.Brand.DocsTitle}}</title>
-<script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+{{if .Brand.Description}}<meta name="description" content="{{.Brand.Description}}">{{end}}
+<script src="/assets/mermaid.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f7fafc; color: #2d3748; }
@@ -154,7 +155,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
     <a href="/drawio" class="drawio-btn" id="drawio-btn">Descargar .drawio</a>
     <div class="footer-info">
       {{.Brand.CompanyName}} &copy; {{.Brand.DocsYear}}
-      {{if .Brand.PoweredBy}}<br><a href="https://laratec.com.co" target="_blank">Powered by Laratec SAS</a>{{end}}
+      {{if .Brand.PoweredBy}}<br>{{with .Brand.PoweredByLink}}<a href="{{.}}" target="_blank" rel="noopener">Powered by {{$.Brand.PoweredByLabel}}</a>{{else}}Powered by {{.Brand.PoweredByLabel}}{{end}}{{end}}
     </div>
   </div>
 </aside>

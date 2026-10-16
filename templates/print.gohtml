@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <title>{{.Brand.CompanyName}} — {{.Brand.DocsTitle}}</title>
-  <script src="https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.min.js"></script>
+  <script src="/assets/mermaid.min.js"></script>
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
     body {
@@ -14,56 +14,69 @@
 
     /* PORTADA */
     .cover {
-      height: 247mm;
+      height: 297mm;
       display: flex; flex-direction: column;
       justify-content: center; align-items: center; text-align: center;
-      break-after: page; padding: 40px;
+      padding: 40px;
     }
     .cover-logo { margin-bottom: 44px; }
     .cover-logo img { max-height: 90px; width: auto; }
     .cover-company { font-size: 2rem; font-weight: 800; color: {{.Brand.PrimaryColor}}; margin-bottom: 10px; }
     .cover-title { font-size: 1.2rem; font-weight: 400; color: #4a5568; margin-bottom: 36px; }
+    .cover-description { font-size: 0.95rem; color: #718096; max-width: 120mm; margin: -24px auto 36px; }
     .cover-line { width: 72px; height: 4px; background: {{.Brand.AccentColor}}; border-radius: 2px; margin: 0 auto 36px; }
     .cover-date { font-size: 0.85rem; color: #718096; margin-bottom: 12px; }
     .cover-powered { font-size: 0.8rem; color: #a0aec0; }
     .cover-powered a { color: {{.Brand.AccentColor}}; text-decoration: none; }
 
     /* ÍNDICE */
-    .toc-page { break-before: page; break-after: page; padding: 10px 0; }
+    .cover + .toc-page { break-before: page; }
+    .toc-page { padding: 10px 0; }
     .toc-heading {
       font-size: 1.5rem; font-weight: 800; color: {{.Brand.PrimaryColor}};
       border-bottom: 3px solid {{.Brand.AccentColor}};
-      padding-bottom: 12px; margin-bottom: 28px;
+      padding-bottom: 12px; margin-bottom: 22px;
     }
-    .toc-item {
-      display: flex; align-items: flex-start; gap: 18px;
-      padding: 14px 0; border-bottom: 1px solid #edf2f7;
+    .toc-doc { padding: 10px 0 8px; border-bottom: 1px solid #edf2f7; break-inside: avoid; }
+    .toc-doc:last-child { border-bottom: none; }
+    .toc-item, .toc-sub-item {
+      display: flex; align-items: baseline; gap: 10px;
+      text-decoration: none; color: inherit;
     }
-    .toc-item:last-child { border-bottom: none; }
-    .toc-num { font-size: 1.4rem; font-weight: 800; color: {{.Brand.AccentColor}}; min-width: 34px; line-height: 1; padding-top: 2px; }
-    .toc-info { display: flex; flex-direction: column; gap: 3px; }
+    .toc-num { font-size: 1.15rem; font-weight: 800; color: {{.Brand.AccentColor}}; min-width: 30px; }
+    .toc-info { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
     .toc-title { font-size: 0.95rem; font-weight: 700; color: {{.Brand.PrimaryColor}}; }
-    .toc-subtitle { font-size: 0.82rem; color: #718096; }
+    .toc-subtitle { font-size: 0.8rem; color: #718096; }
+    .toc-dots { flex: 1; border-bottom: 1px dotted #cbd5e0; transform: translateY(-3px); min-width: 20px; }
+    .toc-pg { min-width: 22px; text-align: right; font-variant-numeric: tabular-nums; font-weight: 600; color: #4a5568; font-size: 0.85rem; }
+    .toc-sub { margin: 4px 0 0 40px; }
+    .toc-sub-item { font-size: 0.82rem; color: #4a5568; padding: 2px 0; }
+    .toc-sub-item.lvl-3 { padding-left: 16px; font-size: 0.78rem; color: #718096; }
+    .toc-sub-item .toc-pg { font-weight: 400; color: #718096; }
 
     /* SECCIONES */
     .doc-section { break-before: page; }
-    .doc-header { background: {{.Brand.PrimaryColor}}; color: #ffffff; padding: 20px 28px; margin-bottom: 30px; }
-    .doc-header-title { font-size: 1.3rem; font-weight: 800; margin-bottom: 4px; }
+    .doc-header {
+      background: {{.Brand.PrimaryColor}}; color: #ffffff; padding: 20px 28px; margin-bottom: 30px;
+      display: flex; justify-content: space-between; align-items: flex-start; gap: 16px;
+    }
+    .doc-header-title { font-size: 1.3rem; font-weight: 800; margin-bottom: 4px; line-height: 1.25; }
     .doc-header-subtitle { font-size: 0.88rem; opacity: 0.7; }
+    .doc-header-back { color: #ffffff; opacity: 0.65; font-size: 0.75rem; text-decoration: none; white-space: nowrap; padding-top: 4px; }
 
     /* TIPOGRAFÍA */
-    .content h1 {
+    .content .md-h1 {
       font-size: 1.6rem; font-weight: 800; color: {{.Brand.PrimaryColor}};
       padding-bottom: 11px; border-bottom: 3px solid {{.Brand.AccentColor}};
       margin: 24px 0 10px; line-height: 1.25;
     }
-    .content h1:first-child { margin-top: 0; }
-    .content h2 {
+    .content .md-h1:first-child { margin-top: 0; }
+    .content .md-h2 {
       font-size: 1.15rem; font-weight: 700; color: {{.Brand.PrimaryColor}};
       margin: 30px 0 11px; padding-bottom: 7px; border-bottom: 1px solid #e2e8f0;
     }
-    .content h3 { font-size: 1.02rem; font-weight: 700; color: #2d3748; margin: 20px 0 7px; }
-    .content h4 { font-size: 0.95rem; font-weight: 600; color: #4a5568; margin: 14px 0 5px; }
+    .content .md-h3 { font-size: 1.02rem; font-weight: 700; color: #2d3748; margin: 20px 0 7px; }
+    .content .md-h4 { font-size: 0.95rem; font-weight: 600; color: #4a5568; margin: 14px 0 5px; }
     .content p { line-height: 1.75; color: #4a5568; margin-bottom: 11px; }
     .content strong { color: #2d3748; font-weight: 700; }
     .content em { color: #718096; }
@@ -107,46 +120,73 @@
       border-radius: 8px; padding: 22px 14px;
       margin: 14px 0; text-align: center; break-inside: avoid;
     }
+    .mermaid svg { max-width: 100% !important; max-height: 205mm; height: auto; width: auto; }
+    .content img { max-width: 100%; max-height: 220mm; }
+    .content .md-h2, .content .md-h3, .content .md-h4 { break-after: avoid; }
     .content input[type="checkbox"] { margin-right: 5px; }
   </style>
 </head>
 <body>
 
-  <!-- PORTADA -->
+  {{if .ShowCover}}
+  <!-- PORTADA (se imprime aparte, sin pie de página) -->
   <div class="cover">
     <div class="cover-logo"><img src="/logo.svg" alt="{{.Brand.CompanyName}}"></div>
     <div class="cover-company">{{.Brand.CompanyName}}</div>
     <div class="cover-title">{{.Brand.DocsTitle}}</div>
+    {{if .Brand.Description}}<div class="cover-description">{{.Brand.Description}}</div>{{end}}
     <div class="cover-line"></div>
     <div class="cover-date">{{.Date}}</div>
     {{if .Brand.PoweredBy}}
-    <div class="cover-powered">Powered by <a href="https://laratec.co/">Laratec SAS</a></div>
+    <div class="cover-powered">Powered by {{with .Brand.PoweredByLink}}<a href="{{.}}">{{$.Brand.PoweredByLabel}}</a>{{else}}{{.Brand.PoweredByLabel}}{{end}}</div>
     {{end}}
   </div>
 
-  <!-- ÍNDICE -->
-  <div class="toc-page">
-    <h1 class="toc-heading">Índice</h1>
-    {{range $i, $doc := .Docs}}
-    <div class="toc-item">
-      <span class="toc-num">{{printf "%02d" (add $i 1)}}</span>
-      <div class="toc-info">
-        <span class="toc-title">{{$doc.Title}}</span>
-        <span class="toc-subtitle">{{$doc.Subtitle}}</span>
+  {{end}}
+
+  {{if .ShowBody}}
+  <!-- ÍNDICE: enlaces internos + número de página (se rellena en la 2ª pasada) -->
+  <nav class="toc-page" aria-label="Índice">
+    <h1 class="toc-heading" id="toc">Índice</h1>
+    {{range $i, $s := .Sections}}
+    <div class="toc-doc">
+      <a class="toc-item" href="#{{$s.Anchor}}">
+        <span class="toc-num">{{printf "%02d" (add $i 1)}}</span>
+        <span class="toc-info">
+          <span class="toc-title">{{$s.Doc.Title}}</span>
+          {{if $s.Doc.Subtitle}}<span class="toc-subtitle">{{$s.Doc.Subtitle}}</span>{{end}}
+        </span>
+        <span class="toc-dots"></span>
+        <span class="toc-pg" data-page-of="{{$s.Anchor}}"></span>
+      </a>
+      {{if $s.TOC}}
+      <div class="toc-sub">
+        {{range $s.TOC}}
+        <a class="toc-sub-item lvl-{{.Level}}" href="#{{.Anchor}}">
+          <span>{{.Text}}</span>
+          <span class="toc-dots"></span>
+          <span class="toc-pg" data-page-of="{{.Anchor}}"></span>
+        </a>
+        {{end}}
       </div>
+      {{end}}
     </div>
     {{end}}
-  </div>
+  </nav>
 
-  <!-- DOCUMENTOS -->
+  <!-- DOCUMENTOS: cada uno es un H1 (nivel 1 de los marcadores del PDF) -->
   {{range .Sections}}
   <section class="doc-section">
-    <div class="doc-header">
-      <div class="doc-header-title">{{.Doc.Title}}</div>
-      <div class="doc-header-subtitle">{{.Doc.Subtitle}}</div>
-    </div>
+    <header class="doc-header">
+      <div>
+        <h1 class="doc-header-title" id="{{.Anchor}}">{{.Doc.Title}}</h1>
+        {{if .Doc.Subtitle}}<div class="doc-header-subtitle">{{.Doc.Subtitle}}</div>{{end}}
+      </div>
+      <a class="doc-header-back" href="#toc">↑ Índice</a>
+    </header>
     <div class="content">{{.Content}}</div>
   </section>
+  {{end}}
   {{end}}
 
   <script>

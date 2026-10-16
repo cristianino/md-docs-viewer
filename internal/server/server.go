@@ -2,42 +2,71 @@ package server
 
 import (
 	"fmt"
+	"net"
 	"net/http"
 	"os"
-	"regexp"
+	"path"
+	"path/filepath"
 	"strings"
 	"time"
-	"unicode"
 
-	"golang.org/x/text/transform"
-	"golang.org/x/text/unicode/norm"
-
+	"github.com/cristianino/mdocs/assets"
 	"github.com/cristianino/mdocs/internal/brand"
 	"github.com/cristianino/mdocs/internal/docs"
 )
 
 var port int
 
-// Start arranca el servidor HTTP en el puerto indicado.
-func Start(p int) error {
-	port = p
-
+func newMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/", handleRoot)
 	mux.HandleFunc("/logo.svg", handleLogo)
+	mux.HandleFunc("/assets/mermaid.min.js", handleMermaidJS)
 	mux.HandleFunc("/doc/", handleDoc)
 	mux.HandleFunc("/print", handlePrint)
 	mux.HandleFunc("/pdf", handlePDF)
 	mux.HandleFunc("/drawio", handleDrawio)
 	mux.HandleFunc("/mermaid-export", handleMermaidExport)
-
-	cfg, _ := brand.Load("brand.config.json")
-	printBanner(cfg, p)
-
-	return http.ListenAndServe(fmt.Sprintf(":%d", p), mux)
+	mux.HandleFunc("/files/", handleFiles)
+	return mux
 }
 
-func loadState() (*brand.Config, []*docs.Doc, error) {
+// Start arranca el servidor HTTP en el puerto indicado.
+func Start(p int) error {
+	port = p
+	cfg, _ := brand.Load("brand.config.json")
+	printBanner(cfg, p)
+	return http.ListenAndServe(fmt.Sprintf(":%d", p), newMux())
+}
+
+// Ephemeral arranca el servidor en un puerto libre de 127.0.0.1 (para
+// generar PDF/draw.io desde la CLI) y devuelve su URL base y cómo pararlo.
+func Ephemeral() (string, func(), error) {
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		return "", nil, err
+	}
+	port = ln.Addr().(*net.TCPAddr).Port
+	srv := &http.Server{Handler: newMux()}
+	go srv.Serve(ln)
+	return baseURL(), func() { srv.Close() }, nil
+}
+
+func baseURL() string { return fmt.Sprintf("http://localhost:%d", port) }
+
+// handleFiles sirve archivos del proyecto (imágenes referenciadas desde los
+// .md). Solo rutas relativas dentro de la carpeta actual.
+func handleFiles(w http.ResponseWriter, r *http.Request) {
+	rel := path.Clean(strings.TrimPrefix(r.URL.Path, "/files/"))
+	if rel == "." || strings.HasPrefix(rel, "..") || path.IsAbs(rel) || strings.HasSuffix(rel, ".json") {
+		http.NotFound(w, r)
+		return
+	}
+	http.ServeFile(w, r, filepath.FromSlash(rel))
+}
+
+// LoadState lee brand.config.json y docs.config.json de la carpeta actual.
+func LoadState() (*brand.Config, []*docs.Doc, error) {
 	cfg, err := brand.Load("brand.config.json")
 	if err != nil {
 		return nil, nil, err
@@ -54,7 +83,7 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 		http.NotFound(w, r)
 		return
 	}
-	_, docList, err := loadState()
+	_, docList, err := LoadState()
 	if err != nil || len(docList) == 0 {
 		http.Error(w, "No hay documentos configurados.", http.StatusNotFound)
 		return
@@ -65,11 +94,16 @@ func handleRoot(w http.ResponseWriter, r *http.Request) {
 func handleLogo(w http.ResponseWriter, r *http.Request) {
 	data, err := os.ReadFile("logo.svg")
 	if err != nil {
-		http.NotFound(w, r)
-		return
+		data = assets.DefaultLogo
 	}
 	w.Header().Set("Content-Type", "image/svg+xml")
 	w.Write(data)
+}
+
+func handleMermaidJS(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+	w.Header().Set("Cache-Control", "public, max-age=86400")
+	w.Write(assets.MermaidJS)
 }
 
 func handleDoc(w http.ResponseWriter, r *http.Request) {
@@ -79,7 +113,7 @@ func handleDoc(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cfg, docList, err := loadState()
+	cfg, docList, err := LoadState()
 	if err != nil {
 		http.Error(w, "Error de configuración: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -102,13 +136,13 @@ func handleDoc(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Documento no encontrado: "+doc.File, http.StatusNotFound)
 		return
 	}
-	htmlContent, err := docs.Render(raw)
+	res, err := docs.Render(raw, docs.Options{Mode: docs.ModeWeb, Doc: doc, All: docList})
 	if err != nil {
 		http.Error(w, "Error al renderizar: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	html, err := renderPage(cfg, docList, id, htmlContent)
+	html, err := renderPage(cfg, docList, doc, res)
 	if err != nil {
 		http.Error(w, "Error de template: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -118,12 +152,12 @@ func handleDoc(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePrint(w http.ResponseWriter, r *http.Request) {
-	cfg, docList, err := loadState()
+	cfg, docList, err := LoadState()
 	if err != nil {
 		http.Error(w, "Error de configuración: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	html, err := renderPrint(cfg, docList)
+	html, err := renderPrint(cfg, docList, PrintPart(r.URL.Query().Get("part")))
 	if err != nil {
 		http.Error(w, "Error de template: "+err.Error(), http.StatusInternalServerError)
 		return
@@ -133,38 +167,27 @@ func handlePrint(w http.ResponseWriter, r *http.Request) {
 }
 
 func handlePDF(w http.ResponseWriter, r *http.Request) {
-	cfg, _, err := loadState()
+	cfg, _, err := LoadState()
 	if err != nil {
 		http.Error(w, "Error de configuración: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	pdfBytes, err := GeneratePDF(port)
+	pdfBytes, err := GeneratePDF(baseURL(), cfg)
 	if err != nil {
 		http.Error(w, "Error generando PDF: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
-	filename := pdfFilename(cfg)
+	filename := PDFFilename(cfg)
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	w.Write(pdfBytes)
 }
 
-// pdfFilename genera el nombre de archivo normalizado para el PDF.
-func pdfFilename(cfg *brand.Config) string {
-	date := time.Now().Format("2006-01-02")
-	raw := fmt.Sprintf("%s-%s-%s", cfg.CompanyName, cfg.DocsTitle, date)
-	// Normalizar: quitar tildes, minúsculas, solo alfanumérico y guiones
-	t := transform.Chain(norm.NFD, transform.RemoveFunc(func(r rune) bool {
-		return unicode.Is(unicode.Mn, r) // marcas diacríticas
-	}), norm.NFC)
-	cleaned, _, _ := transform.String(t, raw)
-	cleaned = strings.ToLower(cleaned)
-	re := regexp.MustCompile(`[^a-z0-9]+`)
-	cleaned = re.ReplaceAllString(cleaned, "-")
-	cleaned = strings.Trim(cleaned, "-")
-	return cleaned + ".pdf"
+// PDFFilename genera el nombre de archivo normalizado para el PDF.
+func PDFFilename(cfg *brand.Config) string {
+	return slugFilename(fmt.Sprintf("%s-%s-%s", cfg.CompanyName, cfg.DocsTitle, time.Now().Format("2006-01-02"))) + ".pdf"
 }
 
 func printBanner(cfg *brand.Config, p int) {

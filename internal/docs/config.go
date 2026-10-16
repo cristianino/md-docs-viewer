@@ -24,3 +24,15 @@ func Load(path string) ([]*Doc, error) {
 	}
 	return docs, nil
 }
+
+// Save escribe la lista de documentos en formato JSON indentado.
+func Save(path string, list []*Doc) error {
+	if list == nil {
+		list = []*Doc{}
+	}
+	data, err := json.MarshalIndent(list, "", "  ")
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(path, append(data, '\n'), 0644)
+}

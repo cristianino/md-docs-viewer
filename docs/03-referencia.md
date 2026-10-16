@@ -11,13 +11,13 @@ Esta sección demuestra todas las funcionalidades de formato soportadas por el v
 ```mermaid
 flowchart TD
     A([Inicio]) --> B[Reemplazar logo.svg]
-    B --> C[./mdocs generate-styles]
+    B --> C[mdocs generate-styles]
     C --> D{¿Colores correctos?}
     D -- Sí --> E[Editar docs.config.json]
     D -- No --> F[Ajustar brand.config.json]
     F --> E
     E --> G[Crear archivos .md]
-    G --> H[./mdocs serve]
+    G --> H[mdocs serve]
     H --> I([Documentación lista])
 ```
 
@@ -49,8 +49,11 @@ sequenceDiagram
 | `accentColor` | `string` | Color de acento (links, bordes activos) | `"#0066cc"` |
 | `companyName` | `string` | Nombre de la empresa | `"Acme Corp"` |
 | `docsTitle` | `string` | Subtítulo bajo el logo | `"Portal de Docs"` |
+| `description` | `string` | Descripción en la portada del PDF y metadatos | `"API interna"` |
 | `docsYear` | `string` | Año mostrado en el footer | `"2026"` |
-| `poweredBy` | `boolean` | Atribución en el PDF | `false` |
+| `poweredBy` | `boolean` | Muestra "Powered by" en visor y PDF | `false` |
+| `poweredByText` | `string` | Texto de la atribución (default `mdocs`) | `"Acme Labs"` |
+| `poweredByUrl` | `string` | Enlace de la atribución | `"https://acme.dev"` |
 
 ### Campos de docs.config.json
 
@@ -66,6 +69,7 @@ sequenceDiagram
 | Variable | Valor por defecto | Descripción |
 |---|---|---|
 | `PORT` | `3000` | Puerto en el que escucha el servidor |
+| `MDOCS_CHROME` | detección automática | Ruta a Chrome/Chromium para PDF y draw.io |
 
 ## Bloques de código
 
@@ -122,27 +126,17 @@ ORDER BY visitas DESC;
 ```
 proyecto/
 ├── main.go                    ← Entry point (llama a cmd/mdocs.Execute)
-├── go.mod / go.sum
-├── cmd/mdocs/
-│   ├── root.go                ← Cobra root command
-│   ├── serve.go               ← mdocs serve [--port]
-│   └── styles.go              ← mdocs generate-styles
+├── cmd/mdocs/                 ← CLI: init, serve, build, add, remove, list,
+│                                check, context, agents, generate-styles
+├── assets/                    ← Embebidos: mermaid.min.js, logo, AGENTS.md
+├── templates/                 ← Plantillas embebidas (sobrescribibles)
 ├── internal/
-│   ├── brand/
-│   │   ├── config.go          ← BrandConfig + HexToRGBA
-│   │   └── extract.go         ← Extracción de colores del SVG
-│   ├── docs/
-│   │   ├── config.go          ← Doc struct + Load()
-│   │   └── markdown.go        ← goldmark: Markdown → HTML
-│   └── server/
-│       ├── server.go          ← Rutas HTTP + pdfFilename
-│       ├── render.go          ← renderPage() + renderPrint()
-│       └── pdf.go             ← GeneratePDF() via chromedp
-├── templates/
-│   ├── page.gohtml            ← Template HTML del visor (sidebar + contenido)
-│   └── print.gohtml           ← Template HTML para PDF (portada + índice + docs)
-├── docs/
-│   └── *.md                   ← Archivos de contenido
+│   ├── brand/                 ← brand.config.json + colores del logo
+│   ├── docs/                  ← Markdown → HTML, anclas, enlaces entre docs
+│   ├── project/               ← check y context
+│   ├── pdfnav/                ← marcadores, portada y etiquetas del PDF
+│   └── server/                ← HTTP, PDF (chromedp) y exportación draw.io
+├── docs/*.md                  ← Contenido
 ├── brand.config.json
 ├── docs.config.json
 └── logo.svg
