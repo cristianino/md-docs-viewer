@@ -8,7 +8,7 @@ require (
 	github.com/chromedp/cdproto v0.0.0-20250319231242-a755498943c8
 	github.com/chromedp/chromedp v0.13.3
 	github.com/spf13/cobra v1.8.0
-	github.com/yuin/goldmark v1.7.1
+	github.com/yuin/goldmark v1.8.6
 	golang.org/x/text v0.34.0
 )
 
