@@ -1,0 +1,24 @@
+# systemd: /etc/systemd/system/mdocs.service
+#   sudo systemctl daemon-reload && sudo systemctl enable --now mdocs
+[Unit]
+Description=mdocs - visor de documentación
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+User=mdocs
+WorkingDirectory=/srv/docs
+ExecStart=/usr/local/bin/mdocs serve
+Environment=MDOCS_HOST=127.0.0.1
+Environment=PORT=8080
+Environment=MDOCS_BASE_PATH=/docs
+Environment=MDOCS_EXPORTS=live
+Restart=on-failure
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=true
+PrivateTmp=true
+ReadOnlyPaths=/srv/docs
+
+[Install]
+WantedBy=multi-user.target

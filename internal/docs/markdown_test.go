@@ -70,3 +70,15 @@ func TestTOCMarker(t *testing.T) {
 		t.Error("el marcador no se reemplazó")
 	}
 }
+
+func TestRenderBasePath(t *testing.T) {
+	res, err := Render([]byte(src), Options{Mode: ModeWeb, Doc: list[0], All: list, Base: "/docs"})
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{`href="/docs/doc/guia"`, `src="/docs/files/docs/img/a.png"`, `href="#c%C3%B3mo-funciona"`} {
+		if !strings.Contains(res.HTML, want) {
+			t.Errorf("falta %s en:\n%s", want, res.HTML)
+		}
+	}
+}

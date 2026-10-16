@@ -5,7 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{{.PageTitle}} — {{.Brand.DocsTitle}}</title>
 {{if .Brand.Description}}<meta name="description" content="{{.Brand.Description}}">{{end}}
-<script src="/assets/mermaid.min.js"></script>
+<script src="{{.Base}}/assets/mermaid.min.js"></script>
 <style>
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f7fafc; color: #2d3748; }
@@ -174,7 +174,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .otp a.lvl-3 { padding-left: 24px; font-size: 12px; color: #718096; }
 .otp a:hover { color: {{.Brand.PrimaryColor}}; background: #f7fafc; }
 .otp a.current { border-left-color: {{.Brand.AccentColor}}; color: {{.Brand.AccentColor}}; }
-@media (min-width: 1440px) { .otp { box-shadow: none; } }
+/* pantallas anchas: al abrir el panel el contenido se angosta en vez de quedar tapado */
+@media (min-width: 1280px) {
+  body.otp-open .content { max-width: calc(100vw - 268px - 272px); }
+  body.otp-open .otp { box-shadow: none; }
+}
 @media print { .otp, .otp-toggle { display: none; } }
 
 /* Página de índice general */
@@ -205,24 +209,24 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 
 <aside class="sidebar">
   <div class="sidebar-logo">
-    <img src="/logo.svg" alt="{{.Brand.CompanyName}}">
+    <img src="{{.Base}}/logo.svg" alt="{{.Brand.CompanyName}}">
     <div class="docs-title">{{.Brand.DocsTitle}}</div>
   </div>
   <nav class="sidebar-nav">
-    <a href="/indice" class="nav-index{{if .IsIndex}} active{{end}}">
+    <a href="{{.Base}}/indice{{.Slash}}" class="nav-index{{if .IsIndex}} active{{end}}">
       <svg width="13" height="13" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.6" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h8"/></svg>
       Índice general
     </a>
     {{range .Docs}}
-    <a href="/doc/{{.ID}}" class="nav-item{{if eq .ID $.ActiveID}} active{{end}}">
+    <a href="{{$.Base}}/doc/{{.ID}}{{$.Slash}}" class="nav-item{{if eq .ID $.ActiveID}} active{{end}}">
       <div class="nav-item-title">{{.Title}}</div>
       <div class="nav-item-sub">{{.Subtitle}}</div>
     </a>
     {{end}}
   </nav>
   <div class="sidebar-footer">
-    <a href="/pdf" class="pdf-btn" id="pdf-btn">Descargar PDF</a>
-    <a href="/drawio" class="drawio-btn" id="drawio-btn">Descargar .drawio</a>
+    {{with .PDFURL}}<a href="{{.}}" class="pdf-btn" id="pdf-btn">Descargar PDF</a>{{end}}
+    {{with .DrawioURL}}<a href="{{.}}" class="drawio-btn" id="drawio-btn">Descargar .drawio</a>{{end}}
     <div class="footer-info">
       {{.Brand.CompanyName}} &copy; {{.Brand.DocsYear}}
       {{if .Brand.PoweredBy}}<br>{{with .Brand.PoweredByLink}}<a href="{{.}}" target="_blank" rel="noopener">Powered by {{$.Brand.PoweredByLabel}}</a>{{else}}Powered by {{.Brand.PoweredByLabel}}{{end}}{{end}}
@@ -240,13 +244,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
       <div class="idx-doc-head">
         <span class="idx-num">{{printf "%02d" (add $i 1)}}</span>
         <div>
-          <a class="idx-doc-title" href="/doc/{{$e.Doc.ID}}">{{$e.Doc.Title}}</a>
+          <a class="idx-doc-title" href="{{$.Base}}/doc/{{$e.Doc.ID}}{{$.Slash}}">{{$e.Doc.Title}}</a>
           {{if $e.Doc.Subtitle}}<div class="idx-doc-sub">{{$e.Doc.Subtitle}}</div>{{end}}
         </div>
       </div>
       {{if $e.Headings}}
       <ul class="idx-list">
-        {{range $e.Headings}}<li class="lvl-{{.Level}}"><a href="/doc/{{$e.Doc.ID}}#{{.ID}}">{{.Text}}</a></li>{{end}}
+        {{range $e.Headings}}<li class="lvl-{{.Level}}"><a href="{{$.Base}}/doc/{{$e.Doc.ID}}{{$.Slash}}#{{.ID}}">{{.Text}}</a></li>{{end}}
       </ul>
       {{end}}
     </section>
@@ -313,6 +317,7 @@ document.addEventListener('DOMContentLoaded', function() {
     var KEY = 'mdocs.onpage.open';
     var setOpen = function(open) {
       panel.classList.toggle('open', open);
+      document.body.classList.toggle('otp-open', open);
       toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
       try { localStorage.setItem(KEY, open ? '1' : '0'); } catch (e) {}
     };
@@ -320,6 +325,14 @@ document.addEventListener('DOMContentLoaded', function() {
     try { saved = localStorage.getItem(KEY); } catch (e) {}
     setOpen(saved === '1');
     toggle.addEventListener('click', function() { setOpen(!panel.classList.contains('open')); });
+    // en pantallas angostas el panel flota: se cierra al tocar fuera o al elegir un título
+    document.addEventListener('click', function(e) {
+      if (window.innerWidth >= 1280 || !panel.classList.contains('open')) return;
+      if (!panel.contains(e.target) && !toggle.contains(e.target)) setOpen(false);
+    });
+    panel.addEventListener('click', function(e) {
+      if (window.innerWidth < 1280 && e.target.closest('a')) setOpen(false);
+    });
     document.addEventListener('keydown', function(e) {
       if (e.target.closest && e.target.closest('input, textarea, [contenteditable]')) return;
       if (e.key === 't' && !e.ctrlKey && !e.metaKey && !e.altKey) setOpen(!panel.classList.contains('open'));

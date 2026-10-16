@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"path/filepath"
 	"regexp"
 	"strings"
 	"time"
@@ -58,6 +59,7 @@ type mermaidExportBlock struct {
 }
 
 type mermaidExportData struct {
+	Base   string
 	Blocks []mermaidExportBlock
 }
 
@@ -66,7 +68,7 @@ func renderMermaidExport(docList []*docs.Doc) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	data := mermaidExportData{}
+	data := mermaidExportData{Base: opts.BasePath}
 	for i, b := range ExtractMermaidBlocks(docList) {
 		data.Blocks = append(data.Blocks, mermaidExportBlock{Index: i + 1, Code: b.Code})
 	}
@@ -174,16 +176,34 @@ var errNoDiagrams = fmt.Errorf("no se encontraron diagramas Mermaid en los docum
 // --- Handler ---
 
 func handleDrawio(w http.ResponseWriter, r *http.Request) {
+	switch opts.Exports {
+	case ExportsOff:
+		http.NotFound(w, r)
+		return
+	case ExportsStatic:
+		p, err := latestFile(opts.Dist, ".drawio")
+		if err != nil {
+			http.Error(w, err.Error(), http.StatusNotFound)
+			return
+		}
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filepath.Base(p)))
+		w.Header().Set("Content-Type", "application/octet-stream")
+		http.ServeFile(w, r, p)
+		return
+	}
 	cfg, docList, err := LoadState()
 	if err != nil {
 		http.Error(w, "Error de configuración: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 	mode := DrawioMode(r.URL.Query().Get("mode"))
-	if mode == "" {
+	if mode != DrawioImage {
 		mode = DrawioAuto
 	}
-	data, _, err := GenerateDrawio(baseURL(), docList, mode)
+	data, err := cachedExport("drawio-"+string(mode), func() ([]byte, error) {
+		d, _, err := GenerateDrawio(baseURL(), docList, mode)
+		return d, err
+	})
 	if err == errNoDiagrams {
 		http.Error(w, "No se encontraron diagramas Mermaid en los documentos.", http.StatusNotFound)
 		return
@@ -192,9 +212,7 @@ func handleDrawio(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error generando .drawio: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, DrawioFilename(cfg)))
-	w.Write(data)
+	serveDownload(w, "application/octet-stream", DrawioFilename(cfg), data)
 }
 
 // DrawioFilename genera el nombre normalizado del archivo .drawio.

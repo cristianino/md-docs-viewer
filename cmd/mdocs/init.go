@@ -150,7 +150,7 @@ func runInit(dir string, o initOptions, changed func(string) bool, in io.Reader,
 	if !o.noAgents {
 		writeIfMissing(out, filepath.Join(dir, "AGENTS.md"), assets.AgentsGuide)
 	}
-	writeIfMissing(out, filepath.Join(dir, ".gitignore"), []byte("dist/\n"))
+	writeIfMissing(out, filepath.Join(dir, ".gitignore"), []byte("dist/\nsite/\n"))
 
 	fmt.Fprintf(out, "\nListo. Siguiente paso:\n")
 	if dir != "." {

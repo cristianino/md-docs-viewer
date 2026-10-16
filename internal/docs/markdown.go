@@ -51,6 +51,11 @@ type Options struct {
 	Doc *Doc
 	// All es la lista completa, usada para resolver enlaces entre documentos.
 	All []*Doc
+	// Base es el prefijo de las URLs absolutas (p. ej. "/docs" detrás de un
+	// proxy o en un sitio estático). Vacío = raíz.
+	Base string
+	// Slash agrega "/" al final de /doc/{id} (sitio estático: doc/{id}/index.html).
+	Slash bool
 	// DropTitle elimina el primer H1 si coincide con el título del documento
 	// (en el PDF el título ya aparece en la cabecera de la sección).
 	DropTitle bool
@@ -256,7 +261,10 @@ func rewriteLink(dest string, opt Options) string {
 	if opt.Doc != nil && target.ID == opt.Doc.ID && !strings.Contains(dest, ".md") && !strings.HasPrefix(dest, "/doc/") {
 		return dest // ancla en el mismo documento
 	}
-	out := "/doc/" + target.ID
+	out := opt.Base + "/doc/" + target.ID
+	if opt.Slash {
+		out += "/"
+	}
 	if frag != "" {
 		out += "#" + frag
 	}
@@ -273,7 +281,7 @@ func rewriteAsset(dest string, opt Options) string {
 	if opt.Doc != nil {
 		base = path.Dir(toSlash(opt.Doc.File))
 	}
-	return "/files/" + path.Clean(path.Join(base, toSlash(dest)))
+	return opt.Base + "/files/" + path.Clean(path.Join(base, toSlash(dest)))
 }
 
 func toSlash(p string) string { return strings.ReplaceAll(p, "\\", "/") }

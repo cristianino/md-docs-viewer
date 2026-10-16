@@ -55,10 +55,10 @@ func Execute() {
 	rootCmd.PersistentFlags().StringVarP(&dirFlag, "dir", "C", "", "Carpeta del proyecto (por defecto la actual)")
 	rootCmd.PersistentFlags().StringVar(&chromeFlag, "chrome", "", "Ruta a Chrome/Chromium (o variable MDOCS_CHROME)")
 	rootCmd.AddCommand(
-		NewInitCmd(), NewServeCmd(), NewBuildCmd(),
+		NewInitCmd(), NewServeCmd(), NewBuildCmd(), NewExportCmd(),
 		NewAddCmd(), NewRemoveCmd(), NewListCmd(),
 		NewCheckCmd(), NewContextCmd(), NewAgentsCmd(),
-		NewStylesCmd(),
+		NewStylesCmd(), NewHealthcheckCmd(),
 	)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

@@ -1,0 +1,47 @@
+# GitHub Actions: publica la documentación como sitio estático en GitHub Pages.
+# Copia este archivo a .github/workflows/docs.yml en el repo de la documentación
+# y activa Pages con "Source: GitHub Actions".
+name: docs
+on:
+  push:
+    branches: [master, main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest       # trae Google Chrome instalado
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.24"
+      - name: Instalar mdocs
+        run: |
+          git clone --depth 1 https://github.com/cristianino/md-docs-viewer.git /tmp/mdocs
+          cd /tmp/mdocs && go build -o /usr/local/bin/mdocs .
+      - name: Validar
+        run: mdocs check
+      - name: Exportar
+        run: mdocs export -o site --base-path "/${{ github.event.repository.name }}"
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
