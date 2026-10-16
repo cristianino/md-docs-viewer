@@ -13,6 +13,8 @@ Edita los `.md` y la configuración; no edites archivos generados en `dist/`.
 | `logo.svg` | Logo; `mdocs generate-styles` toma sus colores |
 | `templates/*.gohtml` | Opcional: sobrescribe las plantillas embebidas |
 
+Si usas Claude Code, `mdocs skill install` instala la versión de esta guía como skill.
+
 ## Comandos recomendados
 
 ```bash

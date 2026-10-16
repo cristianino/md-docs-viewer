@@ -32,6 +32,7 @@ cp brand.config.json docs.config.json logo.svg LICENSE README.md "$stage/"
 cp assets/AGENTS.md "$stage/AGENTS.md"
 cp -r docs "$stage/docs"
 cp -r deploy "$stage/deploy"
+cp -r skills/mdocs "$stage/skill"
 
 cat > "${stage}/INICIO.md" <<TXT
 # mdocs ${ver} (${GOOS}/${GOARCH})
@@ -53,6 +54,7 @@ Contenido:
   docs/                  documentos de ejemplo (.md)
   logo.svg               logo (reemplázalo y ejecuta: ./${bin} generate-styles)
   AGENTS.md              guía para agentes de IA
+  skill/SKILL.md         skill para Claude (./${bin} skill install --global)
   deploy/                ejemplos de nginx, systemd, Docker y Lambda
 
 Más información: https://github.com/cristianino/md-docs-viewer/wiki
