@@ -8,7 +8,7 @@
 
 # La compilación corre en la arquitectura del host y cruza a la del destino
 # (sin emulación): docker buildx build --platform linux/amd64,linux/arm64 .
-FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS build
+FROM --platform=$BUILDPLATFORM golang:1.26-bookworm AS build
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
 # La imagen golang fija GOTOOLCHAIN=local; con auto, si go.mod pide una
