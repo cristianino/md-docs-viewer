@@ -1,27 +1,27 @@
-# Contribuir
+# Contributing
 
-## Flujo
+## Workflow
 
-Desarrollo basado en tronco sobre `master`:
+Trunk-based development on `master`:
 
-1. Rama corta desde `master`: `feat/...`, `fix/...`, `docs/...`, `ci/...`.
-2. Commits cortos en inglés con prefijo convencional (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `ci:`).
-3. PR hacia `master`. Se mergea cuando el CI está en verde.
+1. Create a short-lived branch from `master`: `feat/...`, `fix/...`, `docs/...`, `ci/...`.
+2. Write short commits in English with a conventional prefix (`feat:`, `fix:`, `docs:`, `test:`, `chore:`, `ci:`).
+3. Open a PR to `master`. It is merged once CI is green.
 
-## Requisitos mínimos (los revisa el CI)
+## Minimum requirements (enforced by CI)
 
-| Revisión | Comando local |
+| Check | Local command |
 |---|---|
-| Formato | `gofmt -l .` (vacío) · para corregir: `gofmt -w .` |
-| Análisis estático | `go vet ./...` |
-| Dependencias al día | `go mod tidy` sin cambios en `go.mod`/`go.sum` |
-| Tests en Linux, Windows y macOS | `go test ./...` (`-race` en Linux) |
-| Punta a punta | `init`, `new`, `index`, `delete`, `check --strict`, `export`, `build all` (Chrome), `serve --base-path` |
-| Documentación del repo válida | `go run . check --strict` |
-| Imágenes Docker | `docker build --target full .` y `--target slim .` |
-| Empaquetado | `scripts/package.sh v0.0.0 linux amd64` |
+| Formatting | `gofmt -l .` prints nothing; fix with `gofmt -w .` |
+| Static analysis | `go vet ./...` |
+| Up-to-date dependencies | `go mod tidy` leaves `go.mod`/`go.sum` unchanged |
+| Tests on Linux, Windows and macOS | `go test ./...` (`-race` on Linux) |
+| End-to-end | `init`, `new`, `index`, `delete`, `check --strict`, `export`, `skill`, `build all` (Chrome), `serve --base-path` |
+| Repository docs are valid | `go run . check --strict` |
+| Docker images | `docker build --target full .` and `--target slim .` |
+| Packaging | `scripts/package.sh v0.0.0 linux amd64` |
 
-Antes de abrir el PR basta con:
+Before opening a PR, this is enough:
 
 ```bash
 gofmt -l . && go vet ./... && go test ./... && go run . check --strict
@@ -29,16 +29,16 @@ gofmt -l . && go vet ./... && go test ./... && go run . check --strict
 
 ## Releases
 
-Se publica un release al subir un tag:
+A release is published by pushing a tag:
 
 ```bash
-git tag v1.2.0 && git push origin v1.2.0      # v1.2.0-rc1 se publica como pre-release
+git tag v1.2.0 && git push origin v1.2.0      # v1.2.0-rc1 is published as a pre-release
 ```
 
-También se puede lanzar sin git, desde *Actions → release → Run workflow*. Ahí se escribe la versión, y el workflow crea el tag sobre `master`.
+You can also start one without git, from *Actions → release → Run workflow*: type the version and the workflow creates the tag on `master`.
 
-El workflow `release` vuelve a correr el CI y luego publica:
-- `mdocs_<versión>_<os>_<arch>.tar.gz` / `.zip` para Linux, macOS y Windows (amd64 y arm64): binario, configuración, documentos de ejemplo, `AGENTS.md` y `deploy/`, sin código fuente;
-- `mdocs-skill_<versión>.zip`: el skill para claude.ai, con `SKILL.md` y el binario linux/amd64;
+The `release` workflow reruns CI and then publishes:
+- `mdocs_<version>_<os>_<arch>.tar.gz` / `.zip` for Linux, macOS and Windows (amd64 and arm64), each with the binary, configuration, sample docs, `AGENTS.md`, `skill/` and `deploy/`, and no source code;
+- `mdocs-skill_<version>.zip`, the claude.ai skill with `SKILL.md` and the linux/amd64 binary;
 - `checksums.txt` (SHA-256);
-- imágenes `ghcr.io/cristianino/mdocs:<versión>` (con Chromium) y `:<versión>-slim`.
+- the images `ghcr.io/cristianino/mdocs:<version>` (with Chromium) and `:<version>-slim`.

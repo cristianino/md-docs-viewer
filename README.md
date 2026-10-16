@@ -1,139 +1,143 @@
 # mdocs
 
-Documentación a partir de archivos Markdown, pensada para personas y para agentes de IA. Un solo binario convierte tus `.md` en:
+Documentation from Markdown files, built for people and for AI agents. A single binary turns your `.md` files into:
 
-- **Un sitio web** con la identidad de tu empresa (colores tomados del logo).
-- **Un PDF navegable**: portada, índice con enlaces y números de página, marcadores laterales, pie con «página / total» y enlaces entre documentos que funcionan dentro del PDF.
-- **Un `.drawio`** con los diagramas Mermaid como **formas editables** (flowchart, sequence, state, class). Los demás tipos se exportan como imagen.
+- **A website** with your company's identity (colors taken from your logo).
+- **A navigable PDF**: cover, table of contents with links and page numbers, bookmarks, a "page / total" footer, and links between documents that work inside the PDF.
+- **A `.drawio` file** with Mermaid diagrams as **editable shapes** (flowchart, sequence, state, class). Other diagram types are exported as images.
 
-Funciona sin conexión: Mermaid y las plantillas van embebidas en el binario.
+It works offline: Mermaid and the templates are embedded in the binary.
 
-## Usar mdocs como skill (Claude y otros agentes)
+## Use mdocs as a skill (Claude and other agents)
 
-La forma recomendada de usar mdocs es pedírselo a un agente: *"documenta este proyecto"*, *"agrega una página de instalación y genera el PDF"*, *"exporta los diagramas a draw.io"*. El skill [`skills/mdocs/SKILL.md`](skills/mdocs/SKILL.md), en formato [Agent Skills](https://code.claude.com/docs/en/skills), le explica al agente:
-- cómo encontrar el binario,
-- cómo entender el proyecto (`context`, `check`),
-- cómo crear y borrar páginas,
-- las reglas del Markdown,
-- cómo generar el PDF, el draw.io o el sitio estático.
+The recommended way to use mdocs is to ask an agent: *"document this project"*, *"add an installation page and build the PDF"*, *"export the diagrams to draw.io"*. The skill [`skills/mdocs/SKILL.md`](skills/mdocs/SKILL.md) follows the [Agent Skills](https://code.claude.com/docs/en/skills) format. It tells the agent how to:
+- find the binary,
+- understand the project (`context`, `check`),
+- create and delete pages,
+- follow the Markdown rules,
+- produce the PDF, the draw.io file or the static site.
 
-Todos esos comandos tienen salida `--json`.
+All of those commands have `--json` output.
 
-**Claude Code**: instala el binario (ver *Instalación*) y después:
+**Claude Code**: install the binary (see *Installation*), then:
 
 ```bash
-mdocs skill install --global          # ~/.claude/skills/mdocs/  → todos tus proyectos
-mdocs skill install                   # .claude/skills/mdocs/    → solo este repo (commitéalo para el equipo)
+mdocs skill install --global          # ~/.claude/skills/mdocs/  → all your projects
+mdocs skill install                   # .claude/skills/mdocs/    → this repository only (commit it for your team)
 ```
 
-Claude lo carga solo cuando la tarea trata de documentación, o puedes invocarlo con `/mdocs`. Con `--with-binary` también copia el ejecutable dentro del skill, por si `mdocs` no está en el PATH.
+Claude loads it automatically when the task is about documentation, or you can call it with `/mdocs`. With `--with-binary`, the executable is copied into the skill too, in case `mdocs` is not on your `PATH`.
 
-**claude.ai** (Pro, Max, Team y Enterprise, con ejecución de código activada): descarga `mdocs-skill_<versión>.zip` del [último release](https://github.com/cristianino/md-docs-viewer/releases). Ya trae `SKILL.md` y el binario para Linux, que es el sistema del entorno donde Claude ejecuta código. Súbelo en *Settings → Capabilities → Skills → Upload skill*. También puedes generarlo tú con `mdocs skill zip --with-binary`, ejecutado desde un binario linux/amd64. En claude.ai normalmente no hay Chrome, así que ahí conviene usar `check`, `context`, `new`/`delete` y `export --no-pdf --no-drawio`.
+**claude.ai** (Pro, Max, Team and Enterprise, with code execution enabled):
+1. Download `mdocs-skill_<version>.zip` from the [latest release](https://github.com/cristianino/md-docs-viewer/releases). It already contains `SKILL.md` and the Linux binary, which is what Claude's code execution environment runs.
+2. Upload it under *Settings → Capabilities → Skills → Upload skill*.
 
-**Otros agentes** (Codex, Cursor, Copilot…): `mdocs init` crea un `AGENTS.md` con las mismas reglas, y `mdocs agents` lo regenera. `mdocs skill print` muestra el skill completo, por si quieres pegarlo en las instrucciones de otra herramienta.
+You can also build the zip yourself with `mdocs skill zip --with-binary`, run from a linux/amd64 binary. Chrome is usually not available there, so stick to `check`, `context`, `new`/`delete` and `export --no-pdf --no-drawio`.
 
-## Instalación
+**Other agents** (Codex, Cursor, Copilot…): `mdocs init` creates an `AGENTS.md` with the same rules, and `mdocs agents` regenerates it. `mdocs skill print` prints the full skill so you can paste it into another tool's instructions.
 
-**Desde un release (sin Go):** descarga el paquete de tu sistema en [Releases](https://github.com/cristianino/md-docs-viewer/releases): `mdocs_<versión>_linux_amd64.tar.gz`, `…_windows_amd64.zip`, `…_darwin_arm64.tar.gz`, etc. Cada paquete trae el binario, `brand.config.json`, `docs.config.json`, los `.md` de ejemplo, `logo.svg`, `AGENTS.md`, `skill/` y `deploy/`; no trae código fuente.
+## Installation
+
+**From a release (no Go needed):** download the package for your platform from [Releases](https://github.com/cristianino/md-docs-viewer/releases): `mdocs_<version>_linux_amd64.tar.gz`, `…_windows_amd64.zip`, `…_darwin_arm64.tar.gz`, and so on. Each package contains the binary, `brand.config.json`, `docs.config.json`, sample `.md` files, `logo.svg`, `AGENTS.md`, `skill/` and `deploy/`. No source code is included. The files are built once, when the release is published, and `checksums.txt` lets you verify them.
 
 ```bash
 tar xzf mdocs_1.0.0_linux_amd64.tar.gz && cd mdocs_1.0.0_linux_amd64
 ./mdocs serve                  # http://localhost:3000
 ```
 
-**Con Docker:** `docker run -p 8080:8080 -v "$PWD:/work:ro" ghcr.io/cristianino/mdocs` (o `:slim`, sin Chrome).
+**With Docker:** `docker run -p 8080:8080 -v "$PWD:/work:ro" ghcr.io/cristianino/mdocs` (or `:slim`, without Chrome).
 
-**Desde el código:** se explica en *Inicio rápido* (abajo).
+**From source:** see *Quick start* below.
 
-## Requisitos para compilar
+## Build requirements
 
-- [Go 1.26+](https://go.dev/dl/) para compilar.
-- Chrome o Chromium, solo para generar el PDF y el `.drawio`. Si no se detecta solo, usa `--chrome <ruta>` o la variable `MDOCS_CHROME`.
+- [Go 1.26+](https://go.dev/dl/) to build.
+- Chrome or Chromium, only to generate the PDF and the `.drawio` file. If it is not detected, use `--chrome <path>` or the `MDOCS_CHROME` variable.
 
-## Inicio rápido
+## Quick start
 
 ```bash
-go build -o mdocs .            # en Windows: go build -o mdocs.exe .
+go build -o mdocs .            # on Windows: go build -o mdocs.exe .
 
-mdocs init mi-portal           # pregunta empresa, título, descripción, año y "powered by" (no por defecto)
-cd mi-portal
-mdocs new "Guía de uso"        # crea docs/02-guia-de-uso.md y lo registra
+mdocs init my-portal           # asks for company, title, description, year and "powered by" (off by default)
+cd my-portal
+mdocs new "User guide"         # creates docs/02-user-guide.md and registers it
 mdocs serve                    # http://localhost:3000
-mdocs build                    # dist/*.pdf y dist/*.drawio
+mdocs build                    # dist/*.pdf and dist/*.drawio
 ```
 
-Sin preguntas (scripts e IAs):
+Without prompts (scripts and AI):
 
 ```bash
-mdocs init --yes --company "Acme" --title "Manual técnico" --description "API interna" --year 2026
+mdocs init --yes --company "Acme" --title "Technical manual" --description "Internal API" --year 2026
 ```
 
-## Comandos
+## Commands
 
-| Comando | Para qué |
+| Command | Purpose |
 |---|---|
-| `mdocs init [carpeta]` | Crea la configuración, `logo.svg`, un documento de ejemplo y `AGENTS.md` |
-| `mdocs serve [-p 3000] [--host] [--base-path] [--exports live\|static\|off]` | Visor web; relee `.md` y plantillas en cada request |
-| `mdocs build [pdf\|drawio\|all] [-o dist] [--mode auto\|image]` | Genera los archivos sin necesidad de `serve` |
-| `mdocs export [-o site] [--base-path /docs]` | Sitio estático con PDF y `.drawio` incluidos (S3, Pages, Netlify, nginx) |
-| `mdocs new "<título>"` | Crea `docs/NN-slug.md` y lo registra en el índice |
-| `mdocs delete <id> [-y]` | Lo quita del índice y borra el `.md` (avisa si otros documentos lo enlazan) |
-| `mdocs add <archivo.md>` | Registra un `.md` existente (y lo crea si no existe) |
-| `mdocs index [--prune]` | Registra todos los `.md` sueltos de `docs/`; con `--prune` quita las entradas sin archivo |
-| `mdocs remove <id>` | Lo quita del índice sin borrar el archivo |
-| `mdocs list` | Lista los documentos registrados |
-| `mdocs check [--strict]` | Valida archivos, ids, enlaces, anclas e imágenes (exit 1 si hay errores) |
-| `mdocs context` | Resume el proyecto (títulos, anclas, diagramas, problemas) |
-| `mdocs agents` | Escribe `AGENTS.md` con las reglas para agentes de IA |
-| `mdocs generate-styles` | Toma los colores de `logo.svg` y los guarda en `brand.config.json` |
-| `mdocs healthcheck` | Consulta `/healthz` (para el HEALTHCHECK de Docker) |
-| `mdocs skill install [--global]` · `skill zip` · `skill print` | Instala el skill para Claude Code, crea el `.zip` para claude.ai o lo muestra |
+| `mdocs init [dir]` | Creates the configuration, `logo.svg`, a sample document and `AGENTS.md` |
+| `mdocs serve [-p 3000] [--host] [--base-path] [--exports live\|static\|off]` | Web viewer; re-reads `.md` files and templates on every request |
+| `mdocs build [pdf\|drawio\|all] [-o dist] [--mode auto\|image]` | Generates the files without running `serve` |
+| `mdocs export [-o site] [--base-path /docs]` | Static site with the PDF and `.drawio` included (S3, Pages, Netlify, nginx) |
+| `mdocs new "<title>"` | Creates `docs/NN-slug.md` and registers it in the index |
+| `mdocs delete <id> [-y]` | Removes it from the index and deletes the `.md` (warns about documents that link to it) |
+| `mdocs add <file.md>` | Registers an existing `.md` (and creates it if missing) |
+| `mdocs index [--prune]` | Registers every loose `.md` in `docs/`; `--prune` removes entries whose file is gone |
+| `mdocs remove <id>` | Removes it from the index without deleting the file |
+| `mdocs list` | Lists the registered documents |
+| `mdocs check [--strict]` | Validates files, ids, links, anchors and images (exit 1 on errors) |
+| `mdocs context` | Summarizes the project (headings, anchors, diagrams, issues) |
+| `mdocs agents` | Writes `AGENTS.md` with the rules for AI agents |
+| `mdocs skill install [--global]` · `skill zip` · `skill print` | Installs the skill for Claude Code, builds the `.zip` for claude.ai, or prints it |
+| `mdocs generate-styles` | Takes the colors from `logo.svg` and saves them to `brand.config.json` |
+| `mdocs healthcheck` | Queries `/healthz` (for Docker's HEALTHCHECK) |
 
-Flags globales: `-C <carpeta>` para trabajar en otro directorio y `--chrome <ruta>` para indicar Chrome. `new`, `delete`, `index`, `list`, `check`, `context`, `build` y `export` aceptan `--json`.
+Global flags: `-C <dir>` to work on another folder, and `--chrome <path>` to point to Chrome. `new`, `delete`, `index`, `list`, `check`, `context`, `build` and `export` accept `--json`.
 
-## Navegación
+## Navigation
 
-- **Índice general** en `/indice`, con filtro: todos los documentos y sus secciones.
-- **«En esta página»**: un botón arriba a la derecha (tecla `t`) que arranca retraído y resalta la sección visible. En pantallas anchas, el contenido se angosta en vez de quedar tapado.
-- **`[TOC]`**: escrito en una línea sola dentro de un `.md`, inserta la tabla de contenido de ese documento, tanto en la web como en el PDF.
+- **General index** at `/indice`, with a filter: every document and its sections.
+- **"On this page"**: a button at the top right (key `t`) that starts collapsed and highlights the visible section. On wide screens the content narrows instead of being covered.
+- **`[TOC]`**: on a line of its own inside a `.md`, inserts that document's table of contents, both on the web and in the PDF.
 
-## Despliegue
+## Deployment
 
-| Dónde | Cómo |
+| Where | How |
 |---|---|
-| S3 + CloudFront, GitHub Pages, Netlify, nginx | `mdocs export --base-path /ruta`: HTML estático; Chrome solo hace falta al exportar ([workflow de Pages](deploy/github-pages.yml)) |
-| VPS | `mdocs serve --host 127.0.0.1 --base-path /docs` detrás de nginx ([nginx](deploy/nginx.conf), [systemd](deploy/mdocs.service)) |
-| Docker | `docker build -t mdocs .` (con Chromium) o `--target slim` (sin Chrome, `--exports static`) ([compose](deploy/docker-compose.yml)) |
-| AWS Lambda | Imagen `slim` + Lambda Web Adapter, con PDF y `.drawio` generados en CI ([Dockerfile](deploy/lambda/Dockerfile)) |
+| S3 + CloudFront, GitHub Pages, Netlify, nginx | `mdocs export --base-path /path`: static HTML; Chrome is only needed while exporting ([Pages workflow](deploy/github-pages.yml)) |
+| VPS | `mdocs serve --host 127.0.0.1 --base-path /docs` behind nginx ([nginx](deploy/nginx.conf), [systemd](deploy/mdocs.service)) |
+| Docker | `ghcr.io/cristianino/mdocs` (with Chromium) or `:slim` (no Chrome, `--exports static`); build locally with `docker build [--target slim] .` ([compose](deploy/docker-compose.yml)) |
+| AWS Lambda | `slim` image + Lambda Web Adapter, with the PDF and `.drawio` built in CI ([Dockerfile](deploy/lambda/Dockerfile)) |
 
-Variables de `serve`: `MDOCS_HOST`, `PORT`, `MDOCS_BASE_PATH`, `MDOCS_EXPORTS`, `MDOCS_DIST`, `MDOCS_CHROME`, `MDOCS_NO_SANDBOX`. El detalle está en la wiki, página *Despliegue*.
+`serve` variables: `MDOCS_HOST`, `PORT`, `MDOCS_BASE_PATH`, `MDOCS_EXPORTS`, `MDOCS_DIST`, `MDOCS_CHROME`, `MDOCS_NO_SANDBOX`. See the wiki's *Deployment* page for details.
 
-## Configuración
+## Configuration
 
-`brand.config.json` (lo crea `mdocs init`):
+`brand.config.json` (created by `mdocs init`):
 
 ```json
 {
   "primaryColor": "#1a2035",
   "accentColor": "#0066cc",
-  "companyName": "Mi Empresa",
-  "docsTitle": "Portal de Documentación",
-  "description": "Descripción corta para la portada del PDF",
+  "companyName": "My Company",
+  "docsTitle": "Documentation Portal",
+  "description": "Short description for the PDF cover",
   "docsYear": "2026",
   "poweredBy": false
 }
 ```
 
-`docs.config.json` es la lista ordenada de documentos (`id`, `file`, `title`, `subtitle`). Lo mantienen `new`, `delete`, `add`, `index` y `remove`.
+`docs.config.json` is the ordered list of documents (`id`, `file`, `title`, `subtitle`). It is maintained by `new`, `delete`, `add`, `index` and `remove`.
 
-## Más información
+## More information
 
-Cada comando, la exportación a PDF y draw.io, las plantillas y la guía para IAs están explicados en la [wiki](https://github.com/cristianino/md-docs-viewer/wiki).
+The [wiki](https://github.com/cristianino/md-docs-viewer/wiki) explains every command, the PDF and draw.io exports, the templates, deployment and the AI agent guide.
 
-## Contribuir
+## Contributing
 
-Los PR hacia `master` deben pasar el CI: formato, `go vet`, tests en Linux, Windows y macOS, una prueba de punta a punta, las imágenes Docker y el empaquetado. Los detalles están en [CONTRIBUTING.md](CONTRIBUTING.md).
+PRs to `master` must pass CI: formatting, `go vet`, tests on Linux, Windows and macOS, an end-to-end test, the Docker images and the packaging. See [CONTRIBUTING.md](CONTRIBUTING.md).
 
-## Licencia
+## License
 
-MIT. Ver [LICENSE](LICENSE).
+MIT. See [LICENSE](LICENSE).
