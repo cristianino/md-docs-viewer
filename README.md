@@ -36,8 +36,9 @@ mdocs init --yes --company "Acme" --title "Manual técnico" --description "API i
 | Comando | Para qué |
 |---|---|
 | `mdocs init [carpeta]` | Crea la configuración, `logo.svg`, un documento de ejemplo y `AGENTS.md` |
-| `mdocs serve [-p 3000]` | Visor web con recarga en caliente de `.md` y plantillas |
+| `mdocs serve [-p 3000] [--host] [--base-path] [--exports live\|static\|off]` | Visor web; relee `.md` y plantillas en cada request |
 | `mdocs build [pdf\|drawio\|all] [-o dist] [--mode auto\|image]` | Genera los archivos sin necesidad de `serve` |
+| `mdocs export [-o site] [--base-path /docs]` | Sitio estático con PDF y `.drawio` incluidos (S3, Pages, Netlify, nginx) |
 | `mdocs add <archivo.md>` | Registra un documento (y lo crea si no existe) |
 | `mdocs remove <id>` | Lo quita del índice (no borra el archivo) |
 | `mdocs list` | Lista los documentos registrados |
@@ -45,8 +46,26 @@ mdocs init --yes --company "Acme" --title "Manual técnico" --description "API i
 | `mdocs context` | Resume el proyecto (títulos, anclas, diagramas, problemas) |
 | `mdocs agents` | Escribe `AGENTS.md` con las reglas para agentes de IA |
 | `mdocs generate-styles` | Toma los colores de `logo.svg` y los guarda en `brand.config.json` |
+| `mdocs healthcheck` | Consulta `/healthz` (para el HEALTHCHECK de Docker) |
 
 Flags globales: `-C <carpeta>` para trabajar en otro directorio y `--chrome <ruta>` para indicar Chrome. `list`, `check`, `context` y `build` aceptan `--json`.
+
+## Navegación
+
+- **Índice general** en `/indice`, con filtro: todos los documentos y sus secciones.
+- **«En esta página»**: un botón arriba a la derecha (tecla `t`) que arranca retraído y resalta la sección visible. En pantallas anchas, el contenido se angosta en vez de quedar tapado.
+- **`[TOC]`**: escrito en una línea sola dentro de un `.md`, inserta la tabla de contenido de ese documento, tanto en la web como en el PDF.
+
+## Despliegue
+
+| Dónde | Cómo |
+|---|---|
+| S3 + CloudFront, GitHub Pages, Netlify, nginx | `mdocs export --base-path /ruta`: HTML estático; Chrome solo hace falta al exportar ([workflow de Pages](deploy/github-pages.yml)) |
+| VPS | `mdocs serve --host 127.0.0.1 --base-path /docs` detrás de nginx ([nginx](deploy/nginx.conf), [systemd](deploy/mdocs.service)) |
+| Docker | `docker build -t mdocs .` (con Chromium) o `--target slim` (sin Chrome, `--exports static`) ([compose](deploy/docker-compose.yml)) |
+| AWS Lambda | Imagen `slim` + Lambda Web Adapter, con PDF y `.drawio` generados en CI ([Dockerfile](deploy/lambda/Dockerfile)) |
+
+Variables de `serve`: `MDOCS_HOST`, `PORT`, `MDOCS_BASE_PATH`, `MDOCS_EXPORTS`, `MDOCS_DIST`, `MDOCS_CHROME`, `MDOCS_NO_SANDBOX`. El detalle está en la wiki, página *Despliegue*.
 
 ## Configuración
 

@@ -23,6 +23,7 @@ mdocs remove <id>           # quitar del índice (no borra el .md)
 mdocs list --json           # documentos registrados
 mdocs build all --json      # generar dist/*.pdf y dist/*.drawio (no requiere serve)
 mdocs build drawio --mode image   # forzar diagramas como imagen
+mdocs export -o site --base-path /docs --json   # sitio estático para publicar
 ```
 
 Todos aceptan `-C <carpeta>` para trabajar en otro directorio y `--chrome <ruta>`
