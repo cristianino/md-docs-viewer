@@ -82,3 +82,13 @@ func TestRenderBasePath(t *testing.T) {
 		}
 	}
 }
+
+func TestTOCMarkerInsideCodeIsKept(t *testing.T) {
+	res, err := Render([]byte("# A\n\n```\n[TOC]\n```\n\n## B\n"), Options{Mode: ModeWeb, Doc: list[0], All: list})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(res.HTML, "md-toc") || !strings.Contains(res.HTML, "[TOC]") {
+		t.Errorf("[TOC] dentro de código no debe reemplazarse:\n%s", res.HTML)
+	}
+}
