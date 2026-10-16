@@ -59,7 +59,7 @@ func Execute() {
 		NewInitCmd(), NewServeCmd(), NewBuildCmd(), NewExportCmd(),
 		NewNewCmd(), NewAddCmd(), NewIndexCmd(), NewDeleteCmd(), NewRemoveCmd(), NewListCmd(),
 		NewCheckCmd(), NewContextCmd(), NewAgentsCmd(),
-		NewStylesCmd(), NewHealthcheckCmd(),
+		NewStylesCmd(), NewHealthcheckCmd(), NewSkillCmd(),
 	)
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Fprintln(os.Stderr, "error:", err)

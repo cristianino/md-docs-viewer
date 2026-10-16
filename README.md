@@ -8,9 +8,33 @@ Documentación a partir de archivos Markdown, pensada para personas y para agent
 
 Funciona sin conexión: Mermaid y las plantillas van embebidas en el binario.
 
+## Usar mdocs como skill (Claude y otros agentes)
+
+La forma recomendada de usar mdocs es pedírselo a un agente: *"documenta este proyecto"*, *"agrega una página de instalación y genera el PDF"*, *"exporta los diagramas a draw.io"*. El skill [`skills/mdocs/SKILL.md`](skills/mdocs/SKILL.md), en formato [Agent Skills](https://code.claude.com/docs/en/skills), le explica al agente:
+- cómo encontrar el binario,
+- cómo entender el proyecto (`context`, `check`),
+- cómo crear y borrar páginas,
+- las reglas del Markdown,
+- cómo generar el PDF, el draw.io o el sitio estático.
+
+Todos esos comandos tienen salida `--json`.
+
+**Claude Code**: instala el binario (ver *Instalación*) y después:
+
+```bash
+mdocs skill install --global          # ~/.claude/skills/mdocs/  → todos tus proyectos
+mdocs skill install                   # .claude/skills/mdocs/    → solo este repo (commitéalo para el equipo)
+```
+
+Claude lo carga solo cuando la tarea trata de documentación, o puedes invocarlo con `/mdocs`. Con `--with-binary` también copia el ejecutable dentro del skill, por si `mdocs` no está en el PATH.
+
+**claude.ai** (Pro, Max, Team y Enterprise, con ejecución de código activada): descarga `mdocs-skill_<versión>.zip` del [último release](https://github.com/cristianino/md-docs-viewer/releases). Ya trae `SKILL.md` y el binario para Linux, que es el sistema del entorno donde Claude ejecuta código. Súbelo en *Settings → Capabilities → Skills → Upload skill*. También puedes generarlo tú con `mdocs skill zip --with-binary`, ejecutado desde un binario linux/amd64. En claude.ai normalmente no hay Chrome, así que ahí conviene usar `check`, `context`, `new`/`delete` y `export --no-pdf --no-drawio`.
+
+**Otros agentes** (Codex, Cursor, Copilot…): `mdocs init` crea un `AGENTS.md` con las mismas reglas, y `mdocs agents` lo regenera. `mdocs skill print` muestra el skill completo, por si quieres pegarlo en las instrucciones de otra herramienta.
+
 ## Instalación
 
-**Desde un release (sin Go):** descarga el paquete de tu sistema en [Releases](https://github.com/cristianino/md-docs-viewer/releases): `mdocs_<versión>_linux_amd64.tar.gz`, `…_windows_amd64.zip`, `…_darwin_arm64.tar.gz`, etc. Cada paquete trae el binario, `brand.config.json`, `docs.config.json`, los `.md` de ejemplo, `logo.svg`, `AGENTS.md` y `deploy/`; no trae código fuente.
+**Desde un release (sin Go):** descarga el paquete de tu sistema en [Releases](https://github.com/cristianino/md-docs-viewer/releases): `mdocs_<versión>_linux_amd64.tar.gz`, `…_windows_amd64.zip`, `…_darwin_arm64.tar.gz`, etc. Cada paquete trae el binario, `brand.config.json`, `docs.config.json`, los `.md` de ejemplo, `logo.svg`, `AGENTS.md`, `skill/` y `deploy/`; no trae código fuente.
 
 ```bash
 tar xzf mdocs_1.0.0_linux_amd64.tar.gz && cd mdocs_1.0.0_linux_amd64
@@ -63,6 +87,7 @@ mdocs init --yes --company "Acme" --title "Manual técnico" --description "API i
 | `mdocs agents` | Escribe `AGENTS.md` con las reglas para agentes de IA |
 | `mdocs generate-styles` | Toma los colores de `logo.svg` y los guarda en `brand.config.json` |
 | `mdocs healthcheck` | Consulta `/healthz` (para el HEALTHCHECK de Docker) |
+| `mdocs skill install [--global]` · `skill zip` · `skill print` | Instala el skill para Claude Code, crea el `.zip` para claude.ai o lo muestra |
 
 Flags globales: `-C <carpeta>` para trabajar en otro directorio y `--chrome <ruta>` para indicar Chrome. `new`, `delete`, `index`, `list`, `check`, `context`, `build` y `export` aceptan `--json`.
 

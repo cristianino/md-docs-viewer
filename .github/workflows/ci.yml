@@ -10,7 +10,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: ci-${{ github.ref }}
+  group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
 jobs:
@@ -87,6 +87,11 @@ jobs:
           $M delete guia-rapida --yes --json
           $M check --strict
           $M export -o site --base-path /docs --no-pdf --no-drawio --json
+          $M skill install
+          head -3 .claude/skills/mdocs/SKILL.md | grep -q '^name: mdocs$'
+          $M skill zip --with-binary -o skill.zip
+          unzip -l skill.zip | grep -q 'mdocs/SKILL.md'
+          unzip -l skill.zip | grep -q 'mdocs/bin/mdocs' 
           test -f site/doc/introduccion/index.html
           test -f site/indice/index.html
       - name: PDF y draw.io con Chrome

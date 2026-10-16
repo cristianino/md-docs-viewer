@@ -35,7 +35,10 @@ Se publica un release al subir un tag:
 git tag v1.2.0 && git push origin v1.2.0      # v1.2.0-rc1 se publica como pre-release
 ```
 
+También se puede lanzar sin git, desde *Actions → release → Run workflow*. Ahí se escribe la versión, y el workflow crea el tag sobre `master`.
+
 El workflow `release` vuelve a correr el CI y luego publica:
 - `mdocs_<versión>_<os>_<arch>.tar.gz` / `.zip` para Linux, macOS y Windows (amd64 y arm64): binario, configuración, documentos de ejemplo, `AGENTS.md` y `deploy/`, sin código fuente;
+- `mdocs-skill_<versión>.zip`: el skill para claude.ai, con `SKILL.md` y el binario linux/amd64;
 - `checksums.txt` (SHA-256);
 - imágenes `ghcr.io/cristianino/mdocs:<versión>` (con Chromium) y `:<versión>-slim`.

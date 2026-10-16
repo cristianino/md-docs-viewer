@@ -1,13 +1,22 @@
 name: release
 
-# Crea un release al subir un tag de versión:
-#   git tag v1.0.0 && git push origin v1.0.0
+# Crea un release:
+#   - al subir un tag:  git tag v1.0.0 && git push origin v1.0.0
+#   - o a mano: Actions → release → Run workflow → versión (crea el tag sobre master)
 on:
   push:
     tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Versión a publicar (p. ej. v0.1.0-rc1)"
+        required: true
 
 permissions:
   contents: read
+
+env:
+  VERSION: ${{ inputs.version || github.ref_name }}
 
 jobs:
   ci:
@@ -24,21 +33,29 @@ jobs:
       - uses: actions/setup-go@v7
         with:
           go-version-file: go.mod
+      - name: versión válida
+        run: |
+          [[ "$VERSION" =~ ^v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.]+)?$ ]] || {
+            echo "::error::versión inválida: $VERSION (usa vX.Y.Z o vX.Y.Z-rc1)"; exit 1; }
       - name: empaquetar
         run: |
           set -euo pipefail
           for target in linux/amd64 linux/arm64 darwin/amd64 darwin/arm64 windows/amd64 windows/arm64; do
-            scripts/package.sh "$GITHUB_REF_NAME" "${target%/*}" "${target#*/}" release
+            scripts/package.sh "$VERSION" "${target%/*}" "${target#*/}" release
           done
+          # skill para claude.ai: SKILL.md + binario linux/amd64
+          go build -trimpath -ldflags "-s -w -X github.com/cristianino/mdocs/cmd/mdocs.Version=${VERSION#v}" -o "$RUNNER_TEMP/mdocs" .
+          "$RUNNER_TEMP/mdocs" skill zip --with-binary -o "release/mdocs-skill_${VERSION#v}.zip"
           cd release && sha256sum * > checksums.txt && cat checksums.txt
       - name: publicar
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
           pre=""
-          case "$GITHUB_REF_NAME" in *-*) pre="--prerelease";; esac   # v1.0.0-rc1 → pre-release
-          gh release create "$GITHUB_REF_NAME" release/* \
-            --title "$GITHUB_REF_NAME" --generate-notes --verify-tag $pre
+          case "$VERSION" in *-*) pre="--prerelease";; esac   # v1.0.0-rc1 → pre-release
+          # con tag existente lo usa; desde "Run workflow" lo crea sobre este commit
+          gh release create "$VERSION" release/* \
+            --title "$VERSION" --generate-notes --target "$GITHUB_SHA" $pre
 
   image:
     name: imágenes en GHCR
@@ -60,7 +77,7 @@ jobs:
         id: tags
         run: |
           repo="ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/mdocs"
-          ver="${GITHUB_REF_NAME#v}"
+          ver="${VERSION#v}"
           echo "full=$repo:$ver,$repo:latest" >> "$GITHUB_OUTPUT"
           echo "slim=$repo:$ver-slim,$repo:slim" >> "$GITHUB_OUTPUT"
           echo "ver=$ver" >> "$GITHUB_OUTPUT"
