@@ -6,13 +6,8 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 	"time"
-	"unicode"
-
-	"golang.org/x/text/transform"
-	"golang.org/x/text/unicode/norm"
 
 	"github.com/cristianino/mdocs/assets"
 	"github.com/cristianino/mdocs/internal/brand"
@@ -168,26 +163,15 @@ func handlePDF(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filename := pdfFilename(cfg)
+	filename := PDFFilename(cfg)
 	w.Header().Set("Content-Type", "application/pdf")
 	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
 	w.Write(pdfBytes)
 }
 
-// pdfFilename genera el nombre de archivo normalizado para el PDF.
-func pdfFilename(cfg *brand.Config) string {
-	date := time.Now().Format("2006-01-02")
-	raw := fmt.Sprintf("%s-%s-%s", cfg.CompanyName, cfg.DocsTitle, date)
-	// Normalizar: quitar tildes, minúsculas, solo alfanumérico y guiones
-	t := transform.Chain(norm.NFD, transform.RemoveFunc(func(r rune) bool {
-		return unicode.Is(unicode.Mn, r) // marcas diacríticas
-	}), norm.NFC)
-	cleaned, _, _ := transform.String(t, raw)
-	cleaned = strings.ToLower(cleaned)
-	re := regexp.MustCompile(`[^a-z0-9]+`)
-	cleaned = re.ReplaceAllString(cleaned, "-")
-	cleaned = strings.Trim(cleaned, "-")
-	return cleaned + ".pdf"
+// PDFFilename genera el nombre de archivo normalizado para el PDF.
+func PDFFilename(cfg *brand.Config) string {
+	return slugFilename(fmt.Sprintf("%s-%s-%s", cfg.CompanyName, cfg.DocsTitle, time.Now().Format("2006-01-02"))) + ".pdf"
 }
 
 func printBanner(cfg *brand.Config, p int) {

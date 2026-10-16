@@ -3,12 +3,8 @@ package server
 import (
 	"bytes"
 	"context"
-	"encoding/base64"
-	"encoding/xml"
+	"encoding/json"
 	"fmt"
-	"html"
-	"image"
-	_ "image/png"
 	"net/http"
 	"os"
 	"regexp"
@@ -27,12 +23,14 @@ import (
 var reMermaidBlock = regexp.MustCompile("(?s)```mermaid\r?\n(.*?)```")
 
 type mermaidBlock struct {
-	docTitle string
-	index    int
-	code     string
+	DocID    string
+	DocTitle string
+	Index    int // posición dentro del documento (1-based)
+	Code     string
 }
 
-func extractMermaidBlocks(docList []*docs.Doc) []mermaidBlock {
+// ExtractMermaidBlocks devuelve los bloques ```mermaid de todos los documentos.
+func ExtractMermaidBlocks(docList []*docs.Doc) []mermaidBlock {
 	var blocks []mermaidBlock
 	for _, doc := range docList {
 		raw, err := os.ReadFile(doc.File)
@@ -42,20 +40,14 @@ func extractMermaidBlocks(docList []*docs.Doc) []mermaidBlock {
 		matches := reMermaidBlock.FindAllStringSubmatch(string(raw), -1)
 		for i, m := range matches {
 			blocks = append(blocks, mermaidBlock{
-				docTitle: doc.Title,
-				index:    i + 1,
-				code:     strings.TrimSpace(m[1]),
+				DocID:    doc.ID,
+				DocTitle: doc.Title,
+				Index:    i + 1,
+				Code:     strings.TrimSpace(m[1]),
 			})
 		}
 	}
 	return blocks
-}
-
-// xmlAttr escapa una cadena para usarla como valor de atributo XML.
-func xmlAttr(s string) string {
-	var buf strings.Builder
-	xml.EscapeText(&buf, []byte(s))
-	return buf.String()
 }
 
 // --- Página de exportación Mermaid ---
@@ -74,13 +66,9 @@ func renderMermaidExport(docList []*docs.Doc) (string, error) {
 	if err != nil {
 		return "", err
 	}
-	blocks := extractMermaidBlocks(docList)
 	data := mermaidExportData{}
-	for i, b := range blocks {
-		data.Blocks = append(data.Blocks, mermaidExportBlock{
-			Index: i + 1,
-			Code:  b.code,
-		})
+	for i, b := range ExtractMermaidBlocks(docList) {
+		data.Blocks = append(data.Blocks, mermaidExportBlock{Index: i + 1, Code: b.Code})
 	}
 	var buf bytes.Buffer
 	if err := tmpl.Execute(&buf, data); err != nil {
@@ -104,125 +92,86 @@ func handleMermaidExport(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprint(w, htmlStr)
 }
 
-// --- Captura de PNGs con chromedp (screenshot por elemento) ---
+// --- Captura en Chrome: geometría (para formas nativas) + PNG (respaldo) ---
 
-func captureMermaidPNGs(base string, count int) ([][]byte, error) {
-	url := base + "/mermaid-export"
+type capture struct {
+	exports []diagramExport
+	pngs    [][]byte
+}
 
+func captureDiagrams(base string, count int) (*capture, error) {
 	ctx, cancel := newChromeContext(context.Background())
 	defer cancel()
-
-	ctx, cancelTimeout := context.WithTimeout(ctx, 90*time.Second)
+	ctx, cancelTimeout := context.WithTimeout(ctx, 120*time.Second)
 	defer cancelTimeout()
 
-	waitDone := chromedp.ActionFunc(func(ctx context.Context) error {
-		deadline := time.Now().Add(15 * time.Second)
-		for time.Now().Before(deadline) {
-			var done bool
-			if err := chromedp.Evaluate(`window.__diagramsDone === true`, &done).Do(ctx); err == nil && done {
-				return nil
-			}
-			time.Sleep(200 * time.Millisecond)
-		}
-		return nil
-	})
-
-	pngs := make([][]byte, count)
-
-	// Navegar y esperar que los diagramas estén listos
+	c := &capture{pngs: make([][]byte, count)}
+	var raw string
 	tasks := chromedp.Tasks{
-		chromedp.Navigate(url),
+		chromedp.Navigate(base + "/mermaid-export"),
 		chromedp.WaitReady("body"),
-		waitDone,
+		waitFlag("__diagramsDone", 30*time.Second),
+		chromedp.Evaluate(`JSON.stringify(window.__exports || [])`, &raw),
 	}
-
-	// Un screenshot por cada elemento #diag-N
 	for i := 0; i < count; i++ {
-		i := i // capturar variable de bucle para closure
+		i := i
 		selector := fmt.Sprintf("#diag-%d", i+1)
 		tasks = append(tasks, chromedp.ActionFunc(func(ctx context.Context) error {
 			var buf []byte
-			if err := chromedp.Screenshot(selector, &buf).Do(ctx); err != nil {
-				fmt.Printf("screenshot error diagrama %d: %v\n", i+1, err)
+			if err := chromedp.Screenshot(selector, &buf, chromedp.ByQuery).Do(ctx); err != nil {
+				fmt.Fprintf(os.Stderr, "drawio: sin captura del diagrama %d: %v\n", i+1, err)
 				return nil // no abortar por un error individual
 			}
-			pngs[i] = buf
+			c.pngs[i] = buf
 			return nil
 		}))
 	}
-
 	if err := chromedp.Run(ctx, tasks); err != nil {
-		return nil, fmt.Errorf("capturando imágenes: %w", err)
+		return nil, fmt.Errorf("capturando diagramas: %w", err)
 	}
-	return pngs, nil
+	if err := json.Unmarshal([]byte(raw), &c.exports); err != nil {
+		return nil, fmt.Errorf("leyendo geometría de diagramas: %w", err)
+	}
+	return c, nil
 }
 
-// --- Generación del XML .drawio con imágenes PNG ---
+// DrawioMode controla cómo se exporta cada diagrama.
+type DrawioMode string
 
-func generateDrawioWithImages(blocks []mermaidBlock, pngs [][]byte) []byte {
-	now := time.Now().Format("2006-01-02T15:04:05.000Z")
-	var sb strings.Builder
+const (
+	// DrawioAuto usa formas nativas cuando el tipo de diagrama es
+	// compatible (flowchart, sequence, state, class) e imagen en el resto.
+	DrawioAuto DrawioMode = "auto"
+	// DrawioImage exporta todos los diagramas como imagen (comportamiento anterior).
+	DrawioImage DrawioMode = "image"
+)
 
-	sb.WriteString(`<?xml version="1.0" encoding="UTF-8"?>` + "\n")
-	sb.WriteString(`<mxfile host="mdocs" modified="` + xmlAttr(now) + `" agent="mdocs" version="24.0.0" type="device">` + "\n")
-
-	titleStyle := "text;html=0;strokeColor=none;fillColor=none;align=left;verticalAlign=top;fontStyle=1;fontSize=13;"
-
-	for i, b := range blocks {
-		pageID := fmt.Sprintf("mermaid-%d", i+1)
-		pageName := fmt.Sprintf("%s #%d", b.docTitle, b.index)
-		pageNameAttr := xmlAttr(pageName)
-
-		sb.WriteString(`  <diagram name="` + pageNameAttr + `" id="` + pageID + `">` + "\n")
-		sb.WriteString(`    <mxGraphModel>` + "\n")
-		sb.WriteString(`      <root>` + "\n")
-		sb.WriteString(`        <mxCell id="0"/>` + "\n")
-		sb.WriteString(`        <mxCell id="1" parent="0"/>` + "\n")
-
-		// Título de la página
-		sb.WriteString(`        <mxCell id="2" value="` + pageNameAttr + `" style="` + titleStyle + `" vertex="1" parent="1">` + "\n")
-		sb.WriteString(`          <mxGeometry x="20" y="20" width="700" height="28" as="geometry"/>` + "\n")
-		sb.WriteString(`        </mxCell>` + "\n")
-
-		// Diagrama: PNG embebido como <img> en value HTML.
-		// No se usa image= en el style porque el `;` de "data:image/png;base64,"
-		// hace que el parser de estilos de drawio trunque el valor.
-		if i < len(pngs) && len(pngs[i]) > 0 {
-			b64 := base64.StdEncoding.EncodeToString(pngs[i])
-			imgHTML := fmt.Sprintf(`<img src="data:image/png;base64,%s" width="100%%"/>`, b64)
-			valueAttr := xmlAttr(imgHTML) // < > " → &lt; &gt; &#34;
-			cellStyle := "text;html=1;align=center;verticalAlign=middle;strokeColor=none;fillColor=none;overflow=hidden;"
-
-			const displayW = 700.0
-			displayH := 460.0
-			if cfg, _, err := image.DecodeConfig(bytes.NewReader(pngs[i])); err == nil && cfg.Width > 0 {
-				displayH = displayW * float64(cfg.Height) / float64(cfg.Width)
-			}
-
-			sb.WriteString(`        <mxCell id="3" value="` + valueAttr + `" style="` + cellStyle + `" vertex="1" parent="1">` + "\n")
-			sb.WriteString(fmt.Sprintf(`          <mxGeometry x="20" y="56" width="%.0f" height="%.0f" as="geometry"/>`, displayW, displayH) + "\n")
-			sb.WriteString(`        </mxCell>` + "\n")
-		} else {
-			// Fallback: código Mermaid como texto
-			htmlCode := "<pre>" + html.EscapeString(b.code) + "</pre>"
-			codeAttr := xmlAttr(htmlCode)
-			codeStyle := "text;html=1;strokeColor=#d6b656;fillColor=#fffacd;align=left;verticalAlign=top;" +
-				"spacingTop=4;spacingLeft=8;whiteSpace=pre;overflow=hidden;rounded=1;"
-			sb.WriteString(`        <mxCell id="3" value="` + codeAttr + `" style="` + codeStyle + `" vertex="1" parent="1">` + "\n")
-			sb.WriteString(`          <mxGeometry x="20" y="56" width="700" height="400" as="geometry"/>` + "\n")
-			sb.WriteString(`        </mxCell>` + "\n")
-		}
-
-		sb.WriteString(`      </root>` + "\n")
-		sb.WriteString(`    </mxGraphModel>` + "\n")
-		sb.WriteString(`  </diagram>` + "\n")
-	}
-
-	sb.WriteString(`</mxfile>` + "\n")
-	return []byte(sb.String())
+// DiagramReport resume cómo se exportó un diagrama.
+type DiagramReport struct {
+	Doc    string `json:"doc"`
+	Index  int    `json:"index"`
+	Type   string `json:"type"`
+	Output string `json:"output"` // native | image | code
+	Error  string `json:"error,omitempty"`
 }
 
-// --- Handler principal ---
+// GenerateDrawio genera el archivo .drawio de todos los diagramas Mermaid.
+func GenerateDrawio(base string, docList []*docs.Doc, mode DrawioMode) ([]byte, []DiagramReport, error) {
+	blocks := ExtractMermaidBlocks(docList)
+	if len(blocks) == 0 {
+		return nil, nil, errNoDiagrams
+	}
+	c, err := captureDiagrams(base, len(blocks))
+	if err != nil {
+		return nil, nil, err
+	}
+	data, report := buildDrawio(blocks, c, mode)
+	return data, report, nil
+}
+
+var errNoDiagrams = fmt.Errorf("no se encontraron diagramas Mermaid en los documentos")
+
+// --- Handler ---
 
 func handleDrawio(w http.ResponseWriter, r *http.Request) {
 	cfg, docList, err := loadState()
@@ -230,36 +179,36 @@ func handleDrawio(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "Error de configuración: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	blocks := extractMermaidBlocks(docList)
-	if len(blocks) == 0 {
+	mode := DrawioMode(r.URL.Query().Get("mode"))
+	if mode == "" {
+		mode = DrawioAuto
+	}
+	data, _, err := GenerateDrawio(baseURL(), docList, mode)
+	if err == errNoDiagrams {
 		http.Error(w, "No se encontraron diagramas Mermaid en los documentos.", http.StatusNotFound)
 		return
 	}
-
-	pngs, err := captureMermaidPNGs(baseURL(), len(blocks))
 	if err != nil {
-		http.Error(w, "Error capturando imágenes: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Error generando .drawio: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
-
-	data := generateDrawioWithImages(blocks, pngs)
-	filename := drawioFilename(cfg)
 	w.Header().Set("Content-Type", "application/octet-stream")
-	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, filename))
+	w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, DrawioFilename(cfg)))
 	w.Write(data)
 }
 
-func drawioFilename(cfg *brand.Config) string {
-	date := time.Now().Format("2006-01-02")
-	raw := fmt.Sprintf("%s-%s-diagramas-%s", cfg.CompanyName, cfg.DocsTitle, date)
+// DrawioFilename genera el nombre normalizado del archivo .drawio.
+func DrawioFilename(cfg *brand.Config) string {
+	return slugFilename(fmt.Sprintf("%s-%s-diagramas-%s", cfg.CompanyName, cfg.DocsTitle, time.Now().Format("2006-01-02"))) + ".drawio"
+}
+
+// slugFilename quita tildes, pasa a minúsculas y deja solo [a-z0-9-].
+func slugFilename(raw string) string {
 	t := transform.Chain(norm.NFD, transform.RemoveFunc(func(r rune) bool {
 		return unicode.Is(unicode.Mn, r)
 	}), norm.NFC)
 	cleaned, _, _ := transform.String(t, raw)
 	cleaned = strings.ToLower(cleaned)
-	re := regexp.MustCompile(`[^a-z0-9]+`)
-	cleaned = re.ReplaceAllString(cleaned, "-")
-	cleaned = strings.Trim(cleaned, "-")
-	return cleaned + ".drawio"
+	cleaned = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(cleaned, "-")
+	return strings.Trim(cleaned, "-")
 }
