@@ -20,7 +20,7 @@ go build -o mdocs .            # en Windows: go build -o mdocs.exe .
 
 mdocs init mi-portal           # pregunta empresa, título, descripción, año y "powered by" (no por defecto)
 cd mi-portal
-mdocs add docs/02-guia.md --title "Guía"
+mdocs new "Guía de uso"        # crea docs/02-guia-de-uso.md y lo registra
 mdocs serve                    # http://localhost:3000
 mdocs build                    # dist/*.pdf y dist/*.drawio
 ```
@@ -39,8 +39,11 @@ mdocs init --yes --company "Acme" --title "Manual técnico" --description "API i
 | `mdocs serve [-p 3000] [--host] [--base-path] [--exports live\|static\|off]` | Visor web; relee `.md` y plantillas en cada request |
 | `mdocs build [pdf\|drawio\|all] [-o dist] [--mode auto\|image]` | Genera los archivos sin necesidad de `serve` |
 | `mdocs export [-o site] [--base-path /docs]` | Sitio estático con PDF y `.drawio` incluidos (S3, Pages, Netlify, nginx) |
-| `mdocs add <archivo.md>` | Registra un documento (y lo crea si no existe) |
-| `mdocs remove <id>` | Lo quita del índice (no borra el archivo) |
+| `mdocs new "<título>"` | Crea `docs/NN-slug.md` y lo registra en el índice |
+| `mdocs delete <id> [-y]` | Lo quita del índice y borra el `.md` (avisa si otros documentos lo enlazan) |
+| `mdocs add <archivo.md>` | Registra un `.md` existente (y lo crea si no existe) |
+| `mdocs index [--prune]` | Registra todos los `.md` sueltos de `docs/`; con `--prune` quita las entradas sin archivo |
+| `mdocs remove <id>` | Lo quita del índice sin borrar el archivo |
 | `mdocs list` | Lista los documentos registrados |
 | `mdocs check [--strict]` | Valida archivos, ids, enlaces, anclas e imágenes (exit 1 si hay errores) |
 | `mdocs context` | Resume el proyecto (títulos, anclas, diagramas, problemas) |
@@ -48,7 +51,7 @@ mdocs init --yes --company "Acme" --title "Manual técnico" --description "API i
 | `mdocs generate-styles` | Toma los colores de `logo.svg` y los guarda en `brand.config.json` |
 | `mdocs healthcheck` | Consulta `/healthz` (para el HEALTHCHECK de Docker) |
 
-Flags globales: `-C <carpeta>` para trabajar en otro directorio y `--chrome <ruta>` para indicar Chrome. `list`, `check`, `context` y `build` aceptan `--json`.
+Flags globales: `-C <carpeta>` para trabajar en otro directorio y `--chrome <ruta>` para indicar Chrome. `new`, `delete`, `index`, `list`, `check`, `context`, `build` y `export` aceptan `--json`.
 
 ## Navegación
 
@@ -83,7 +86,7 @@ Variables de `serve`: `MDOCS_HOST`, `PORT`, `MDOCS_BASE_PATH`, `MDOCS_EXPORTS`, 
 }
 ```
 
-`docs.config.json` es la lista ordenada de documentos (`id`, `file`, `title`, `subtitle`). Lo mantienen `mdocs add` y `mdocs remove`.
+`docs.config.json` es la lista ordenada de documentos (`id`, `file`, `title`, `subtitle`). Lo mantienen `new`, `delete`, `add`, `index` y `remove`.
 
 ## Más información
 

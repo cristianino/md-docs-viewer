@@ -211,7 +211,7 @@ func sampleDoc(cfg *brand.Config) string {
 	return "# Introducción\n\n" + desc + "\n\n" +
 		"## Primeros pasos\n\n" +
 		"- Edita este archivo en `docs/01-introduccion.md`.\n" +
-		"- Registra más documentos con `mdocs add docs/02-guia.md --title \"Guía\"` o editando `docs.config.json`.\n" +
+		"- Crea más páginas con `mdocs new \"Guía\"` (y elimínalas con `mdocs delete guia`).\n" +
 		"- Reemplaza `logo.svg` y ejecuta `mdocs generate-styles` para tomar sus colores.\n\n" +
 		"## Diagrama de ejemplo\n\n" +
 		"```mermaid\nflowchart LR\n    A[Markdown] --> B(mdocs)\n    B --> C{Salida}\n    C -->|web| D[Visor]\n    C -->|pdf| E[PDF]\n    C -->|drawio| F[draw.io]\n```\n"

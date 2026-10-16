@@ -92,3 +92,28 @@ func TestTOCMarkerInsideCodeIsKept(t *testing.T) {
 		t.Errorf("[TOC] dentro de código no debe reemplazarse:\n%s", res.HTML)
 	}
 }
+
+func TestRegistryHelpers(t *testing.T) {
+	if got := FileSlug("Guía rápida: ¿Qué es?"); got != "guia-rapida-que-es" {
+		t.Errorf("FileSlug = %q", got)
+	}
+	if got := IDFromFile("docs/02-Guía_Rápida.md"); got != "guia-rapida" {
+		t.Errorf("IDFromFile = %q", got)
+	}
+	l := []*Doc{{ID: "a"}, {ID: "b"}}
+	if got := UniqueID(l, "a"); got != "a-2" {
+		t.Errorf("UniqueID = %q", got)
+	}
+	l = Insert(l, &Doc{ID: "c"}, 1)
+	if l[0].ID != "c" || len(l) != 3 {
+		t.Errorf("Insert: %v", l)
+	}
+	for _, p := range []string{"../x.md", "/etc/x.md", ".."} {
+		if InsideProject(p) {
+			t.Errorf("InsideProject(%q) debería ser false", p)
+		}
+	}
+	if !InsideProject("docs/x.md") {
+		t.Error("docs/x.md está dentro")
+	}
+}
