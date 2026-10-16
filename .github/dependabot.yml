@@ -4,7 +4,16 @@ updates:
     directory: /
     schedule:
       interval: monthly
+    groups:
+      # chromedp y cdproto van juntos: actualizar uno solo rompe la compilación.
+      chromedp:
+        patterns:
+          - "github.com/chromedp/*"
   - package-ecosystem: github-actions
     directory: /
     schedule:
       interval: monthly
+    groups:
+      actions:
+        patterns:
+          - "*"

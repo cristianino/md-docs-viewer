@@ -11,6 +11,9 @@
 FROM --platform=$BUILDPLATFORM golang:1.24-bookworm AS build
 ARG TARGETOS=linux
 ARG TARGETARCH=amd64
+# La imagen golang fija GOTOOLCHAIN=local; con auto, si go.mod pide una
+# versión más nueva que la de la imagen, Go la descarga en vez de fallar.
+ENV GOTOOLCHAIN=auto
 WORKDIR /src
 COPY go.mod go.sum ./
 RUN go mod download
