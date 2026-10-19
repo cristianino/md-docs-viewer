@@ -2,7 +2,7 @@
 
 Documentation from Markdown files, built for people and for AI agents. A single binary turns your `.md` files into:
 
-- **A website** with your company's identity (colors taken from your logo).
+- **A website** with your company's identity (colors taken from your logo), a search box and downloadable files.
 - **A navigable PDF**: cover, table of contents with links and page numbers, bookmarks, a "page / total" footer, and links between documents that work inside the PDF.
 - **A `.drawio` file** with Mermaid diagrams as **editable shapes** (flowchart, sequence, state, class). Other diagram types are exported as images.
 
@@ -87,19 +87,33 @@ mdocs init --yes --company "Acme" --title "Technical manual" --description "Inte
 | `mdocs remove <id>` | Removes it from the index without deleting the file |
 | `mdocs list` | Lists the registered documents |
 | `mdocs check [--strict]` | Validates files, ids, links, anchors and images (exit 1 on errors) |
-| `mdocs context` | Summarizes the project (headings, anchors, diagrams, issues) |
+| `mdocs context` | Summarizes the project (headings, anchors, diagrams, downloads, issues) |
+| `mdocs search "<text>"` | Searches titles first, then headings, then content (same as the viewer) |
+| `mdocs attach <file> [--doc <id>]` | Adds a downloadable file (e.g. a Postman collection) and links it from a document |
 | `mdocs agents` | Writes `AGENTS.md` with the rules for AI agents |
 | `mdocs skill install [--global]` · `skill zip` · `skill print` | Installs the skill for Claude Code, builds the `.zip` for claude.ai, or prints it |
 | `mdocs generate-styles` | Takes the colors from `logo.svg` and saves them to `brand.config.json` |
 | `mdocs healthcheck` | Queries `/healthz` (for Docker's HEALTHCHECK) |
 
-Global flags: `-C <dir>` to work on another folder, and `--chrome <path>` to point to Chrome. `new`, `delete`, `index`, `list`, `check`, `context`, `build` and `export` accept `--json`.
+Global flags: `-C <dir>` to work on another folder, and `--chrome <path>` to point to Chrome. `new`, `delete`, `index`, `list`, `check`, `context`, `search`, `attach`, `build` and `export` accept `--json`.
 
 ## Navigation
 
+- **Search** at the top of the sidebar (`/` or `Ctrl+K`): results grouped by document title, then headings, then content; accent-insensitive. The opened page highlights the words. Works on static sites too ([wiki](https://github.com/cristianino/md-docs-viewer/wiki/Search)).
 - **General index** at `/indice`, with a filter: every document and its sections.
 - **"On this page"**: a button at the top right (key `t`) that starts collapsed and highlights the visible section. On wide screens the content narrows instead of being covered.
 - **`[TOC]`**: on a line of its own inside a `.md`, inserts that document's table of contents, both on the web and in the PDF.
+
+## Downloadable files
+
+Link any project file from a document and it becomes a download: a button in the viewer, a copied file in the static site, and an **attachment embedded in the PDF**.
+
+```bash
+mdocs attach ~/Downloads/api.postman_collection.json --doc api --title "Postman collection"
+# copies it to docs/files/ and adds  - [Postman collection](files/api.postman_collection.json)  under "## Descargas"
+```
+
+`.json` files are served only when a document links them, so the project configuration is never exposed. Details in the [wiki](https://github.com/cristianino/md-docs-viewer/wiki/Downloads).
 
 ## Deployment
 
