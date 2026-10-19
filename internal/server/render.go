@@ -46,7 +46,7 @@ type pageData struct {
 	OnPage      []docs.Heading // títulos ## y ### para «En esta página»
 	IsIndex     bool
 	Index       []indexEntry
-	AccentFaint string
+	AccentFaint template.CSS // rgba(): solo números, seguro para CSS
 }
 
 // indexEntry es un documento en la página de índice general.
@@ -90,7 +90,7 @@ type printData struct {
 	Docs        []*docs.Doc
 	Sections    []printSection
 	Date        string
-	AccentFaint string
+	AccentFaint template.CSS // rgba(): solo números, seguro para CSS
 	ShowCover   bool
 	ShowBody    bool
 }
@@ -131,7 +131,7 @@ func renderDocPage(cfg *brand.Config, docList []*docs.Doc, active *docs.Doc, l p
 		Content:     template.HTML(res.HTML),
 		Headings:    res.Headings,
 		OnPage:      onPage(res.Headings),
-		AccentFaint: brand.HexToRGBA(cfg.AccentColor, 0.08),
+		AccentFaint: accentFaint(cfg),
 	}
 	return executePage(tmpl, data)
 }
@@ -164,7 +164,7 @@ func renderIndex(cfg *brand.Config, docList []*docs.Doc, l pageLinks) (string, e
 		PageTitle:   "Índice general",
 		IsIndex:     true,
 		Index:       entries,
-		AccentFaint: brand.HexToRGBA(cfg.AccentColor, 0.08),
+		AccentFaint: accentFaint(cfg),
 	}
 	return executePage(tmpl, data)
 }
@@ -218,7 +218,7 @@ func renderPrint(cfg *brand.Config, docList []*docs.Doc, part PrintPart, base st
 		Docs:        docList,
 		Sections:    sections,
 		Date:        spanishDate(time.Now()),
-		AccentFaint: brand.HexToRGBA(cfg.AccentColor, 0.08),
+		AccentFaint: accentFaint(cfg),
 		ShowCover:   part != PartBody,
 		ShowBody:    part != PartCover,
 	}
@@ -227,4 +227,11 @@ func renderPrint(cfg *brand.Config, docList []*docs.Doc, part PrintPart, base st
 		return "", err
 	}
 	return buf.String(), nil
+}
+
+// accentFaint es el color de acento translúcido. Va como template.CSS porque
+// html/template reemplaza rgba(...) por ZgotmplZ en un valor string.
+// HexToRGBA solo genera dígitos, así que no hay riesgo de inyección.
+func accentFaint(cfg *brand.Config) template.CSS {
+	return template.CSS(brand.HexToRGBA(cfg.AccentColor, 0.08))
 }
