@@ -86,6 +86,7 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("/drawio", handleDrawio)
 	mux.HandleFunc("/mermaid-export", handleMermaidExport)
 	mux.HandleFunc("/files/", handleFiles)
+	mux.HandleFunc("/search.json", handleSearchIndex)
 	return mux
 }
 
@@ -198,16 +199,42 @@ func handleHealth(w http.ResponseWriter, r *http.Request) {
 	fmt.Fprintln(w, "ok")
 }
 
-// handleFiles sirve archivos del proyecto (imágenes referenciadas desde los
-// .md). Solo rutas relativas dentro de la carpeta actual y nunca .json.
+// handleFiles sirve archivos del proyecto: imágenes referenciadas desde los
+// .md y archivos descargables enlazados ([Postman](files/api.json)). Solo
+// rutas relativas dentro de la carpeta actual y nunca rutas con tramos
+// ocultos (.env, .git/…). Los .json solo se sirven si algún documento los
+// enlaza, para no exponer la configuración del proyecto.
 func handleFiles(w http.ResponseWriter, r *http.Request) {
 	rel := path.Clean(strings.TrimPrefix(r.URL.Path, "/files/"))
-	if rel == "." || strings.HasPrefix(rel, "..") || path.IsAbs(rel) ||
-		strings.HasSuffix(strings.ToLower(rel), ".json") || strings.HasPrefix(path.Base(rel), ".") {
+	if rel == "." || strings.HasPrefix(rel, "..") || path.IsAbs(rel) || docs.HiddenPath(rel) {
 		http.NotFound(w, r)
 		return
 	}
+	if strings.HasSuffix(strings.ToLower(rel), ".json") && !isLinkedFile(rel) {
+		http.NotFound(w, r)
+		return
+	}
+	if st, err := os.Stat(filepath.FromSlash(rel)); err != nil || st.IsDir() {
+		http.NotFound(w, r)
+		return
+	}
+	if r.URL.Query().Has("download") {
+		w.Header().Set("Content-Disposition", fmt.Sprintf(`attachment; filename="%s"`, path.Base(rel)))
+	}
 	http.ServeFile(w, r, filepath.FromSlash(rel))
+}
+
+func isLinkedFile(rel string) bool {
+	_, docList, err := LoadState()
+	if err != nil {
+		return false
+	}
+	for _, f := range LinkedFiles(docList) {
+		if f == rel {
+			return true
+		}
+	}
+	return false
 }
 
 // LoadState lee brand.config.json y docs.config.json de la carpeta actual.

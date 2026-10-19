@@ -45,6 +45,7 @@ type DocInfo struct {
 	Words    int            `json:"words"`
 	Headings []docs.Heading `json:"headings"`
 	Diagrams []Diagram      `json:"diagrams,omitempty"`
+	Files    []string       `json:"files,omitempty"` // archivos descargables enlazados
 }
 
 // Context es el resumen completo del proyecto.
@@ -141,6 +142,7 @@ func Load() (*Context, error) {
 		info.Words = len(strings.Fields(reFence.ReplaceAllString(string(raw), "")))
 		if res, err := docs.Render(raw, docs.Options{Mode: docs.ModeWeb, Doc: d, All: list}); err == nil {
 			info.Headings = res.Headings
+			info.Files = res.Files
 			anchors[d.ID] = map[string]bool{}
 			for _, h := range res.Headings {
 				anchors[d.ID][h.ID] = true
@@ -216,6 +218,11 @@ func checkLink(full, dest string, d *docs.Doc, list []*docs.Doc, anchors map[str
 			return
 		}
 	default:
+		if rel, ok := docs.LocalFile(dest, d); ok {
+			if st, err := os.Stat(filepath.FromSlash(rel)); err != nil || st.IsDir() {
+				add("warning", d.File, d.ID, "archivo descargable no encontrado: %s", dest)
+			}
+		}
 		return
 	}
 	a, ok := anchors[targetID]
@@ -273,6 +280,9 @@ func (c *Context) Markdown() string {
 				out = "formas nativas"
 			}
 			fmt.Fprintf(&b, "- Diagrama %d: %s → draw.io %s\n", dg.Index, dg.Type, out)
+		}
+		for _, f := range d.Files {
+			fmt.Fprintf(&b, "- Descargable: `%s`\n", f)
 		}
 		b.WriteString("\n")
 	}

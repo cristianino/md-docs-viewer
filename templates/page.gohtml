@@ -199,6 +199,59 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
 .content ul.idx-list a { color: #4a5568; }
 .idx-empty { color: #a0aec0; font-size: 0.9rem; display: none; }
 
+/* Buscador (barra lateral) */
+.search-box { padding: 14px 16px 4px; }
+.search-field { position: relative; }
+.search-input {
+  width: 100%; padding: 8px 10px 8px 32px; border-radius: 6px;
+  border: 1px solid rgba(255,255,255,0.18); background: rgba(255,255,255,0.08);
+  color: #fff; font-size: 13px; font-family: inherit;
+}
+.search-input::placeholder { color: rgba(255,255,255,0.5); }
+.search-input:focus { outline: none; border-color: {{.Brand.AccentColor}}; background: rgba(255,255,255,0.14); }
+.search-input::-webkit-search-cancel-button { filter: invert(1); opacity: .6; }
+.search-icon { position: absolute; left: 10px; top: 50%; transform: translateY(-50%); width: 14px; height: 14px; color: rgba(255,255,255,0.55); pointer-events: none; }
+.search-kbd {
+  position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+  font: 600 10px/1 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; color: rgba(255,255,255,0.5);
+  border: 1px solid rgba(255,255,255,0.25); border-radius: 4px; padding: 3px 5px; pointer-events: none;
+}
+.search-input:focus ~ .search-kbd, .search-input:not(:placeholder-shown) ~ .search-kbd { display: none; }
+.search-results {
+  position: fixed; top: 12px; left: 280px; z-index: 200;
+  width: min(600px, calc(100vw - 300px)); max-height: calc(100vh - 24px); overflow-y: auto;
+  background: #fff; border: 1px solid #e2e8f0; border-radius: 10px;
+  box-shadow: 0 12px 32px rgba(26,32,44,0.16); padding: 6px 0; display: none;
+}
+.search-results.open { display: block; }
+.sr-group { font-size: 10.5px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: #a0aec0; padding: 10px 16px 4px; }
+.sr-item { display: block; padding: 8px 16px; text-decoration: none; color: #2d3748; border-left: 3px solid transparent; }
+.sr-item:hover, .sr-item.sel { background: #f7fafc; border-left-color: {{.Brand.AccentColor}}; }
+.sr-title { font-size: 13.5px; font-weight: 600; color: {{.Brand.PrimaryColor}}; line-height: 1.35; }
+.sr-path { font-size: 11.5px; color: #718096; margin-bottom: 1px; }
+.sr-snip { font-size: 12.5px; color: #4a5568; line-height: 1.5; margin-top: 2px; }
+.sr-item mark, .content mark.md-hit { background: {{.AccentFaint}}; color: inherit; box-shadow: inset 0 -2px 0 {{.Brand.AccentColor}}; border-radius: 2px; padding: 0 1px; }
+.sr-empty { padding: 14px 16px; font-size: 13px; color: #a0aec0; }
+.sr-foot { padding: 8px 16px 4px; font-size: 11px; color: #a0aec0; border-top: 1px solid #edf2f7; margin-top: 6px; }
+@media (max-width: 900px) { .search-results { left: 8px; width: calc(100vw - 16px); } }
+
+/* Archivos descargables: [Colección Postman](files/api.postman_collection.json) */
+.content a.md-file {
+  display: inline-flex; align-items: center; gap: 7px; padding: 3px 10px 3px 8px; margin: 1px 0;
+  border: 1px solid #e2e8f0; border-radius: 6px; background: #fff; line-height: 1.5;
+  color: {{.Brand.PrimaryColor}}; font-weight: 500; transition: border-color .15s, background .15s;
+}
+.content a.md-file:hover { text-decoration: none; border-color: {{.Brand.AccentColor}}; background: {{.AccentFaint}}; }
+.content a.md-file::before {
+  content: ""; width: 14px; height: 14px; flex: none; background: {{.Brand.AccentColor}};
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2v8M4.5 6.5 8 10l3.5-3.5M2.5 13.5h11'/%3E%3C/svg%3E") center/contain no-repeat;
+          mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16' fill='none' stroke='black' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M8 2v8M4.5 6.5 8 10l3.5-3.5M2.5 13.5h11'/%3E%3C/svg%3E") center/contain no-repeat;
+}
+.content a.md-file[data-ext]:not([data-ext=""])::after {
+  content: attr(data-ext); font-size: 10px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase;
+  color: #718096; background: #edf2f7; border-radius: 3px; padding: 1px 5px;
+}
+
 /* Scrollbar */
 ::-webkit-scrollbar { width: 6px; height: 6px; }
 ::-webkit-scrollbar-track { background: transparent; }
@@ -211,6 +264,15 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   <div class="sidebar-logo">
     <img src="{{.Base}}/logo.svg" alt="{{.Brand.CompanyName}}">
     <div class="docs-title">{{.Brand.DocsTitle}}</div>
+  </div>
+  <div class="search-box" role="search">
+    <div class="search-field">
+      <input class="search-input" id="search-input" type="search" placeholder="Buscar…" autocomplete="off" spellcheck="false"
+        aria-label="Buscar en la documentación" aria-controls="search-results"
+        data-index="{{.Base}}/search.json" data-base="{{.Base}}" data-slash="{{.Slash}}">
+      <svg class="search-icon" viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><circle cx="7" cy="7" r="4.5"/><path d="m10.5 10.5 3.5 3.5"/></svg>
+      <kbd class="search-kbd" aria-hidden="true">/</kbd>
+    </div>
   </div>
   <nav class="sidebar-nav">
     <a href="{{.Base}}/indice{{.Slash}}" class="nav-index{{if .IsIndex}} active{{end}}">
@@ -272,6 +334,8 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; b
   {{range .OnPage}}<a class="lvl-{{.Level}}" href="#{{.ID}}" data-id="{{.ID}}">{{.Text}}</a>{{end}}
 </nav>
 {{end}}
+
+<div class="search-results" id="search-results" role="listbox" aria-label="Resultados de búsqueda"></div>
 
 <script>
 mermaid.initialize({ startOnLoad: false, theme: 'default' });
@@ -352,6 +416,175 @@ document.addEventListener('DOMContentLoaded', function() {
     window.addEventListener('scroll', mark, { passive: true });
     mark();
   }
+
+  // Buscador: jerarquía título → subtítulo → contenido
+  (function() {
+    var input = document.getElementById('search-input'), box = document.getElementById('search-results');
+    if (!input || !box) return;
+    var base = input.getAttribute('data-base') || '', slash = input.getAttribute('data-slash') || '';
+    var index = null, loading = null, sel = -1, items = [], timer = null;
+    var fold = function(s) {
+      var out = '';
+      for (var ch of String(s || '')) out += (Array.from(ch.normalize('NFD'))[0] || ch).toLowerCase();
+      return out;
+    };
+    var esc = function(s) { return String(s).replace(/[&<>"]/g, function(c) { return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); };
+    var load = function() {
+      if (index || loading) return loading;
+      loading = fetch(input.getAttribute('data-index')).then(function(r) { return r.json(); })
+        .then(function(j) { index = j.docs || []; return index; })
+        .catch(function() { index = []; return index; });
+      return loading;
+    };
+    var score = function(s, q, terms) {
+      var f = fold(s);
+      for (var i = 0; i < terms.length; i++) if (f.indexOf(terms[i]) < 0) return -1;
+      var p = f.indexOf(q);
+      if (f.trim() === q) return 3;
+      if (p === 0 || (p > 0 && !/[\p{L}\p{N}]/u.test(f.charAt(p - 1)))) return 2;
+      return p > 0 ? 1 : 0;
+    };
+    var snippet = function(s, terms, max) {
+      s = s || '';
+      if (s.length <= max) return s;
+      var f = fold(s), pos = -1;
+      terms.forEach(function(t) { var i = f.indexOf(t); if (i >= 0 && (pos < 0 || i < pos)) pos = i; });
+      var start = pos > max / 3 ? pos - Math.floor(max / 3) : 0, end = Math.min(s.length, start + max);
+      if (end === s.length) start = Math.max(0, end - max);
+      while (start > 0 && start < end && !/\s/.test(s.charAt(start - 1))) start++;
+      while (end < s.length && end > start && !/\s/.test(s.charAt(end))) end--;
+      return (start > 0 ? '…' : '') + s.slice(start, end).trim() + (end < s.length ? '…' : '');
+    };
+    var mark = function(s, terms) {
+      var f = fold(s), ranges = [];
+      terms.forEach(function(t) {
+        for (var i = f.indexOf(t); i >= 0; i = f.indexOf(t, i + t.length)) ranges.push([i, i + t.length]);
+      });
+      ranges.sort(function(a, b) { return a[0] - b[0]; });
+      var out = '', last = 0;
+      ranges.forEach(function(r) {
+        if (r[0] < last) { if (r[1] > last) { out += '<mark>' + esc(s.slice(last, r[1])) + '</mark>'; last = r[1]; } return; }
+        out += esc(s.slice(last, r[0])) + '<mark>' + esc(s.slice(r[0], r[1])) + '</mark>';
+        last = r[1];
+      });
+      return out + esc(s.slice(last));
+    };
+    var search = function(raw) {
+      var q = fold(raw.trim().replace(/\s+/g, ' ')), terms = q.split(' ').filter(Boolean), hits = [], order = 0;
+      if (!terms.length) return hits;
+      index.forEach(function(d) {
+        order++;
+        var s = score((d.title || '') + ' ' + (d.subtitle || ''), q, terms);
+        if (s >= 0) hits.push({tier: 1, score: Math.max(s, score(d.title, q, terms)), order: order, doc: d, snip: d.subtitle || ''});
+        var tf = fold(d.title), headHit = {};
+        (d.sections || []).forEach(function(sec, i) {
+          order++;
+          if (!sec.h || (sec.l === 1 && fold(sec.h) === tf)) return;
+          var s2 = score(sec.h, q, terms);
+          if (s2 >= 0) { headHit[i] = true; hits.push({tier: 2, score: s2, order: order, doc: d, sec: sec, snip: snippet(sec.t, terms, 140)}); }
+        });
+        (d.sections || []).forEach(function(sec, i) {
+          if (headHit[i]) return;
+          var s3 = score(((sec.h || '') + ' ' + (sec.t || '')).trim(), q, terms);
+          if (s3 >= 0) hits.push({tier: 3, score: s3, order: order + i, doc: d, sec: sec, snip: snippet(sec.t, terms, 140)});
+        });
+      });
+      hits.sort(function(a, b) { return a.tier - b.tier || b.score - a.score || a.order - b.order; });
+      return hits;
+    };
+    var url = function(h, q) {
+      var u = base + '/doc/' + h.doc.id + slash + '?q=' + encodeURIComponent(q);
+      if (h.sec && h.sec.a && !(h.tier === 3 && h.sec.l === 1)) u += '#' + encodeURIComponent(h.sec.a);
+      return u;
+    };
+    var LIMITS = {1: 8, 2: 12, 3: 20}, LABELS = {1: 'Documentos', 2: 'Secciones', 3: 'Contenido'};
+    var render = function() {
+      var raw = input.value, q = raw.trim();
+      if (!q) { close(); return; }
+      var hits = search(q), terms = fold(q.replace(/\s+/g, ' ')).split(' ').filter(Boolean), html = '', count = {1: 0, 2: 0, 3: 0}, tier = 0;
+      hits.forEach(function(h) {
+        if (++count[h.tier] > LIMITS[h.tier]) return;
+        if (h.tier !== tier) { tier = h.tier; html += '<div class="sr-group">' + LABELS[tier] + '</div>'; }
+        var title = h.tier === 1 ? h.doc.title : (h.sec.h || h.doc.title);
+        var path = h.tier === 1 ? '' : esc(h.doc.title) + (h.tier === 3 && h.sec.h && !(h.sec.l === 1) ? ' › ' + esc(h.sec.h) : '');
+        html += '<a class="sr-item" role="option" href="' + esc(url(h, q)) + '">' +
+          (path && h.tier !== 3 ? '<div class="sr-path">' + path + '</div>' : '') +
+          '<div class="sr-title">' + (h.tier === 3 ? (path || esc(title)) : mark(title, terms)) + '</div>' +
+          (h.snip ? '<div class="sr-snip">' + mark(h.snip, terms) + '</div>' : '') + '</a>';
+      });
+      var hidden = hits.length - Math.min(count[1], LIMITS[1]) - Math.min(count[2], LIMITS[2]) - Math.min(count[3], LIMITS[3]);
+      if (!hits.length) html = '<div class="sr-empty">Sin resultados para «' + esc(q) + '».</div>';
+      else html += '<div class="sr-foot">↑↓ para moverte · Enter para abrir · Esc para cerrar' + (hidden > 0 ? ' · ' + hidden + ' resultados más: afina la búsqueda' : '') + '</div>';
+      box.innerHTML = html;
+      box.classList.add('open');
+      items = box.querySelectorAll('.sr-item');
+      sel = items.length ? 0 : -1;
+      paint();
+    };
+    var paint = function() {
+      items.forEach(function(a, i) { a.classList.toggle('sel', i === sel); });
+      if (sel >= 0) items[sel].scrollIntoView({block: 'nearest'});
+    };
+    var close = function() { box.classList.remove('open'); box.innerHTML = ''; items = []; sel = -1; };
+    input.addEventListener('focus', function() { load(); if (input.value.trim()) load().then(render); });
+    input.addEventListener('input', function() {
+      clearTimeout(timer);
+      timer = setTimeout(function() { load().then(render); }, 90);
+    });
+    input.addEventListener('keydown', function(e) {
+      if (e.key === 'ArrowDown' && items.length) { sel = (sel + 1) % items.length; paint(); e.preventDefault(); }
+      else if (e.key === 'ArrowUp' && items.length) { sel = (sel - 1 + items.length) % items.length; paint(); e.preventDefault(); }
+      else if (e.key === 'Enter' && sel >= 0) { window.location.href = items[sel].href; e.preventDefault(); }
+      else if (e.key === 'Escape') { if (input.value) { input.value = ''; close(); } else input.blur(); e.stopPropagation(); }
+    });
+    document.addEventListener('click', function(e) {
+      if (!box.contains(e.target) && e.target !== input) close();
+    });
+    document.addEventListener('keydown', function(e) {
+      if (e.target.closest && e.target.closest('input, textarea, [contenteditable]')) return;
+      if (e.key === '/' || ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k')) { input.focus(); input.select(); e.preventDefault(); }
+    });
+
+    // Resaltar en la página los términos buscados (?q=)
+    var params = new URLSearchParams(window.location.search), hq = params.get('q');
+    var content = document.querySelector('.content');
+    if (!hq || !content) return;
+    var hterms = fold(hq.trim().replace(/\s+/g, ' ')).split(' ').filter(function(t) { return t.length > 1; });
+    if (!hterms.length) return;
+    var walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT, {
+      acceptNode: function(n) {
+        return n.parentElement.closest('script, style, svg, .mermaid, mark, .md-toc') ? NodeFilter.FILTER_REJECT : NodeFilter.FILTER_ACCEPT;
+      }
+    });
+    var nodes = [];
+    while (walker.nextNode()) nodes.push(walker.currentNode);
+    var first = null;
+    nodes.forEach(function(n) {
+      var text = n.nodeValue, f = fold(text), ranges = [];
+      hterms.forEach(function(t) { for (var i = f.indexOf(t); i >= 0; i = f.indexOf(t, i + t.length)) ranges.push([i, i + t.length]); });
+      if (!ranges.length) return;
+      ranges.sort(function(a, b) { return a[0] - b[0]; });
+      var frag = document.createDocumentFragment(), last = 0;
+      ranges.forEach(function(r) {
+        if (r[0] < last) return;
+        frag.appendChild(document.createTextNode(text.slice(last, r[0])));
+        var m = document.createElement('mark');
+        m.className = 'md-hit';
+        m.textContent = text.slice(r[0], r[1]);
+        frag.appendChild(m);
+        if (!first) first = m;
+        last = r[1];
+      });
+      frag.appendChild(document.createTextNode(text.slice(last)));
+      n.parentNode.replaceChild(frag, n);
+    });
+    if (first && !window.location.hash) first.scrollIntoView({block: 'center'});
+    document.addEventListener('keydown', function(e) {
+      if (e.key !== 'Escape' || (e.target.closest && e.target.closest('input'))) return;
+      content.querySelectorAll('mark.md-hit').forEach(function(m) { m.replaceWith(document.createTextNode(m.textContent)); });
+      content.normalize();
+    });
+  })();
 
   // Índice general: filtro
   var search = document.getElementById('idx-search');

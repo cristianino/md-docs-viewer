@@ -86,7 +86,15 @@ jobs:
           $M check --strict --json
           $M delete guia-rapida --yes --json
           $M check --strict
+          echo '{"info":{"name":"CI"},"item":[]}' > "$RUNNER_TEMP/api.postman_collection.json"
+          $M attach "$RUNNER_TEMP/api.postman_collection.json" --doc introduccion --title "Colección Postman" --json
+          $M attach "$RUNNER_TEMP/api.postman_collection.json" --doc introduccion --json
+          test "$(grep -c 'api.postman_collection.json' docs/01-introduccion.md)" = 1
+          $M search postman --json | grep -q '"docId": "introduccion"'
+          $M check --strict
           $M export -o site --base-path /docs --no-pdf --no-drawio --json
+          test -f site/search.json
+          test -f site/files/docs/files/api.postman_collection.json
           $M skill install
           head -3 .claude/skills/mdocs/SKILL.md | grep -q '^name: mdocs$'
           $M skill zip --with-binary -o skill.zip

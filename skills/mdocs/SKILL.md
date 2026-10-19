@@ -1,6 +1,6 @@
 ---
 name: mdocs
-description: Create and maintain documentation sites from Markdown with the mdocs CLI, and export them as a navigable PDF (bookmarks, linked TOC with page numbers), a draw.io file with Mermaid diagrams as editable shapes, or a static website. Use it when the user wants to write, organize, check, publish or export project documentation, manuals, guides or runbooks as .md files, add or delete documentation pages, or turn Markdown docs into PDF or draw.io.
+description: Create and maintain documentation sites from Markdown with the mdocs CLI (with search and downloadable files such as Postman collections), and export them as a navigable PDF (bookmarks, linked TOC with page numbers), a draw.io file with Mermaid diagrams as editable shapes, or a static website. Use it when the user wants to write, organize, check, publish or export project documentation, manuals, guides or runbooks as .md files, add or delete documentation pages, or turn Markdown docs into PDF or draw.io.
 license: MIT
 ---
 
@@ -44,6 +44,8 @@ mdocs init <carpeta> --yes --company "<empresa>" --title "<título>" --descripti
 | Quitar del índice sin borrar | `mdocs remove <id>` |
 | Borrar página | `mdocs delete <id> --yes --json` → revisa `brokenLinks` y corrige esos enlaces |
 | Ver el orden | `mdocs list --json` |
+| Buscar dónde se documenta algo | `mdocs search "<texto>" --json` → `hits[]` en jerarquía título → subtítulo → contenido, con `docId` y `anchor` |
+| Ofrecer un archivo para descargar (colección Postman, OpenAPI, SQL…) | `mdocs attach <archivo> --doc <id> --title ".." --json` |
 
 No edites `docs.config.json` a mano si un comando lo hace. Después de cada cambio corre `mdocs check --json` y corrige todo lo que tenga `"level": "error"`; los `warning` (enlaces o anclas rotas, imágenes faltantes) también conviene resolverlos.
 
@@ -54,6 +56,8 @@ No edites `docs.config.json` a mano si un comando lo hace. Después de cada camb
 - `[TOC]` en una línea sola inserta la tabla de contenido del documento.
 - Enlaces entre documentos con la ruta relativa al `.md`: `[ver](02-guia.md#paso-1)`. Funcionan en la web y dentro del PDF. Usa las anclas que reporta `mdocs context` (estilo GitHub: minúsculas, espacios → `-`, sin signos).
 - Imágenes relativas al `.md`: `![x](img/diagrama.png)`.
+- Archivos descargables: enlace relativo a un archivo que no sea `.md`, p. ej. `[Colección Postman](files/api.postman_collection.json)`. El visor lo muestra como botón de descarga, `mdocs export` lo copia y el PDF lo lleva adjunto. Usa `mdocs attach`; no pongas el contenido del JSON pegado en el `.md` si el usuario pidió que se pueda descargar.
+- Antes de escribir una sección nueva, `mdocs search` para no duplicar lo que ya existe y enlazarlo.
 - Diagramas en bloques ```` ```mermaid ````. `flowchart`/`graph`, `sequenceDiagram`, `stateDiagram-v2` y `classDiagram` se exportan a draw.io como formas editables; pie, gantt, ER y el resto, como imagen. Si el usuario quiere editar el diagrama en draw.io, prefiere los tipos nativos.
 
 ## 5. Entregables
