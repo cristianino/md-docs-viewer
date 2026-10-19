@@ -5,13 +5,17 @@ import (
 	"encoding/json"
 	"fmt"
 	"html"
+	"mime"
 	"os"
+	"path"
+	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/chromedp/chromedp"
 
 	"github.com/cristianino/mdocs/internal/brand"
+	"github.com/cristianino/mdocs/internal/docs"
 	"github.com/cristianino/mdocs/internal/pdfnav"
 )
 
@@ -26,7 +30,8 @@ type headingRef struct {
 //  2. Lee los marcadores para saber en qué página cae cada título, escribe
 //     esos números en el índice y vuelve a imprimir.
 //  3. Imprime la portada aparte, sin márgenes ni pie.
-//  4. Une portada + cuerpo y ajusta el visor (panel de marcadores abierto,
+//  4. Une portada + cuerpo, adjunta los archivos descargables enlazados
+//     desde los documentos y ajusta el visor (panel de marcadores abierto,
 //     etiquetas de página). Si el paso 4 falla, devuelve el cuerpo solo.
 func GeneratePDF(baseURL string, cfg *brand.Config) ([]byte, error) {
 	ctx, cancel := newChromeContext(context.Background())
@@ -86,7 +91,7 @@ func GeneratePDF(baseURL string, cfg *brand.Config) ([]byte, error) {
 	}
 
 	// 4. unir y ajustar el visor
-	out, err := pdfnav.Finalize(body, pdfnav.Options{Cover: cover})
+	out, err := pdfnav.Finalize(body, pdfnav.Options{Cover: cover, Attachments: pdfAttachments()})
 	if err != nil {
 		fmt.Fprintln(os.Stderr, "pdf: sin portada separada ni ajustes de visor:", err)
 		return body, nil
@@ -166,6 +171,47 @@ func pageNumbers(pdf []byte, headings []headingRef) map[string]int {
 			out[h.ID] = marks[k].Page
 		}
 		j = k + 1
+	}
+	return out
+}
+
+// pdfAttachments lee los archivos descargables enlazados desde los
+// documentos para incrustarlos en el PDF. Omite (con aviso) los que no
+// existen o pasan de docs.MaxAttachmentSize.
+func pdfAttachments() []pdfnav.Attachment {
+	_, docList, err := LoadState()
+	if err != nil {
+		return nil
+	}
+	var out []pdfnav.Attachment
+	used := map[string]bool{}
+	for _, rel := range LinkedFiles(docList) {
+		st, err := os.Stat(filepath.FromSlash(rel))
+		if err != nil || st.IsDir() {
+			fmt.Fprintln(os.Stderr, "pdf: adjunto no encontrado:", rel)
+			continue
+		}
+		if st.Size() > docs.MaxAttachmentSize {
+			fmt.Fprintf(os.Stderr, "pdf: %s pesa más de %d MB; no se adjunta\n", rel, docs.MaxAttachmentSize>>20)
+			continue
+		}
+		data, err := os.ReadFile(filepath.FromSlash(rel))
+		if err != nil {
+			continue
+		}
+		name := docs.AttachmentName(rel)
+		if used[name] {
+			ext := path.Ext(name)
+			for n := 2; used[name]; n++ {
+				name = fmt.Sprintf("%s-%d%s", strings.TrimSuffix(docs.AttachmentName(rel), ext), n, ext)
+			}
+		}
+		used[name] = true
+		mt, _, _ := mime.ParseMediaType(mime.TypeByExtension(path.Ext(rel)))
+		if mt == "" && strings.EqualFold(path.Ext(rel), ".json") {
+			mt = "application/json"
+		}
+		out = append(out, pdfnav.Attachment{Name: name, Description: rel, MIME: mt, Data: data})
 	}
 	return out
 }

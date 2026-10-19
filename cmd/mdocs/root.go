@@ -34,8 +34,10 @@ Flujo típico:
   mdocs serve                visor web en http://localhost:3000
   mdocs build all            genera dist/*.pdf y dist/*.drawio
   mdocs check                valida enlaces, archivos y diagramas
+  mdocs search "texto"       busca: títulos → subtítulos → contenido
+  mdocs attach api.json --doc api   agrega un archivo descargable
 
-Para agentes de IA: mdocs context --json, mdocs check --json, mdocs agents.`,
+Para agentes de IA: mdocs context --json, mdocs check --json, mdocs search --json, mdocs agents.`,
 	PersistentPreRunE: func(cmd *cobra.Command, args []string) error {
 		if dirFlag != "" {
 			if err := os.Chdir(dirFlag); err != nil {
@@ -58,7 +60,7 @@ func Execute() {
 	rootCmd.AddCommand(
 		NewInitCmd(), NewServeCmd(), NewBuildCmd(), NewExportCmd(),
 		NewNewCmd(), NewAddCmd(), NewIndexCmd(), NewDeleteCmd(), NewRemoveCmd(), NewListCmd(),
-		NewCheckCmd(), NewContextCmd(), NewAgentsCmd(),
+		NewCheckCmd(), NewContextCmd(), NewSearchCmd(), NewAttachCmd(), NewAgentsCmd(),
 		NewStylesCmd(), NewHealthcheckCmd(), NewSkillCmd(),
 	)
 	if err := rootCmd.Execute(); err != nil {

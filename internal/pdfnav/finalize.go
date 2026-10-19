@@ -19,6 +19,18 @@ type Options struct {
 	// páginas de Cover (por defecto "Portada"). El resto se numera 1, 2, 3…
 	// para coincidir con el número impreso en el pie.
 	CoverLabel string
+	// Attachments son archivos que se incrustan en el PDF (panel de
+	// adjuntos del visor), p. ej. una colección de Postman enlazada desde
+	// la documentación.
+	Attachments []Attachment
+}
+
+// Attachment es un archivo incrustado en el PDF.
+type Attachment struct {
+	Name        string // nombre que muestra el visor (único)
+	Description string
+	MIME        string // p. ej. application/json; vacío = sin tipo
+	Data        []byte
 }
 
 // rawObject es un objeto copiado tal cual: diccionario + stream opcional.
@@ -219,6 +231,24 @@ func Finalize(body []byte, opt Options) ([]byte, error) {
 		newCat = setKey(newCat, "PageLabels", fmt.Sprintf(
 			"<</Nums [0 <</P %s>> %d <</S /D /St 1>>]>>", pdfString(label), coverPages))
 	}
+	if len(opt.Attachments) > 0 {
+		var arr string
+		arr, newSize = embedFiles(updates, newSize, opt.Attachments)
+		ef := "<</Names " + arr + ">>"
+		switch nv := bytes.TrimSpace(key(cat, "Names")); {
+		case nv == nil:
+			newCat = setKey(newCat, "Names", "<</EmbeddedFiles "+ef+">>")
+		case bytes.HasPrefix(nv, []byte("<<")):
+			newCat = setKey(newCat, "Names", string(setKey(nv, "EmbeddedFiles", ef)))
+		default:
+			n := refNum(nv)
+			nd := d.object(n)
+			if n == 0 || nd == nil || !bytes.HasPrefix(bytes.TrimSpace(nd), []byte("<<")) {
+				return nil, errors.New("pdfnav: diccionario /Names inválido")
+			}
+			updates[n] = setKey(nd, "EmbeddedFiles", ef)
+		}
+	}
 	updates[rootNum] = newCat
 
 	return writeIncremental(body, d, updates, newSize, rootNum), nil
@@ -294,5 +324,52 @@ func pdfString(s string) string {
 		fmt.Fprintf(&b, "%04X", r)
 	}
 	b.WriteString(">")
+	return b.String()
+}
+
+// embedFiles agrega un /EmbeddedFile y un /Filespec por adjunto a partir
+// del objeto next. Devuelve el arreglo del árbol de nombres (ordenado por
+// nombre, como exige la especificación) y el siguiente número libre.
+func embedFiles(updates map[int][]byte, next int, files []Attachment) (string, int) {
+	sorted := append([]Attachment{}, files...)
+	sort.SliceStable(sorted, func(i, j int) bool { return sorted[i].Name < sorted[j].Name })
+	var arr bytes.Buffer
+	arr.WriteString("[")
+	for _, f := range sorted {
+		fileNum, specNum := next, next+1
+		next += 2
+		var ef bytes.Buffer
+		ef.WriteString("<</Type /EmbeddedFile")
+		if f.MIME != "" {
+			ef.WriteString(" /Subtype " + pdfName(f.MIME))
+		}
+		fmt.Fprintf(&ef, " /Length %d /Params <</Size %d>>>>\nstream\n", len(f.Data), len(f.Data))
+		ef.Write(f.Data)
+		ef.WriteString("\nendstream")
+		updates[fileNum] = ef.Bytes()
+
+		name := pdfString(f.Name)
+		spec := fmt.Sprintf("<</Type /Filespec /F %s /UF %s /EF <</F %d 0 R /UF %d 0 R>> /AFRelationship /Supplement", name, name, fileNum, fileNum)
+		if f.Description != "" {
+			spec += " /Desc " + pdfString(f.Description)
+		}
+		updates[specNum] = []byte(spec + ">>")
+		fmt.Fprintf(&arr, "%s %d 0 R ", name, specNum)
+	}
+	return strings.TrimSpace(arr.String()) + "]", next
+}
+
+// pdfName codifica s como nombre PDF (/application#2Fjson).
+func pdfName(s string) string {
+	var b strings.Builder
+	b.WriteByte('/')
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		if c < 0x21 || c > 0x7E || strings.IndexByte("#()<>[]{}/%", c) >= 0 {
+			fmt.Fprintf(&b, "#%02X", c)
+			continue
+		}
+		b.WriteByte(c)
+	}
 	return b.String()
 }

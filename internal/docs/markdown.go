@@ -5,7 +5,9 @@ import (
 	"fmt"
 	stdhtml "html"
 	"net/url"
+	"os"
 	"path"
+	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -72,6 +74,10 @@ type Heading struct {
 type Result struct {
 	HTML     string
 	Headings []Heading
+	// Files son los archivos descargables enlazados desde el documento
+	// (rutas relativas al proyecto, sin repetir), p. ej. una colección de
+	// Postman: [Colección](files/api.postman_collection.json).
+	Files []string
 }
 
 // Render convierte Markdown a HTML aplicando las opciones.
@@ -117,7 +123,24 @@ func Render(source []byte, opt Options) (*Result, error) {
 				}
 			}
 		case *ast.Link:
-			node.Destination = []byte(rewriteLink(string(node.Destination), opt))
+			dest := string(node.Destination)
+			if rel, ok := LocalFile(dest, opt.Doc); ok {
+				if !contains(res.Files, rel) {
+					res.Files = append(res.Files, rel)
+				}
+				if opt.Mode == ModePrint {
+					// en el PDF el archivo va adjunto: el enlace se cambia por
+					// una nota (ver replaceAttachments)
+					node.Destination = []byte(AttachmentScheme + rel)
+				} else {
+					node.Destination = []byte(opt.Base + "/files/" + rel)
+					node.SetAttributeString("download", []byte(path.Base(rel)))
+					node.SetAttributeString("class", []byte("md-file"))
+					node.SetAttributeString("data-ext", []byte(strings.TrimPrefix(strings.ToLower(path.Ext(rel)), ".")))
+				}
+				break
+			}
+			node.Destination = []byte(rewriteLink(dest, opt))
 		case *ast.Image:
 			node.Destination = []byte(rewriteAsset(string(node.Destination), opt))
 		}
@@ -128,8 +151,97 @@ func Render(source []byte, opt Options) (*Result, error) {
 	if err := md.Renderer().Render(&buf, source, doc); err != nil {
 		return nil, err
 	}
-	res.HTML = reTOCMarker.ReplaceAllLiteralString(buf.String(), TOCHTML(res.Headings, 3))
+	out := reTOCMarker.ReplaceAllLiteralString(buf.String(), TOCHTML(res.Headings, 3))
+	if opt.Mode == ModePrint && len(res.Files) > 0 {
+		out = replaceAttachments(out)
+	}
+	res.HTML = out
 	return res, nil
+}
+
+// AttachmentScheme marca, al renderizar para el PDF, los enlaces a archivos
+// que se adjuntan dentro del PDF.
+const AttachmentScheme = "mdocs-attachment:"
+
+var reAttachmentLink = regexp.MustCompile(`<a href="` + AttachmentScheme + `([^"]*)"[^>]*>(.*?)</a>`)
+
+// replaceAttachments cambia los enlaces a archivos por el texto del enlace
+// y una nota con el nombre del adjunto (el PDF no puede enlazar a un
+// archivo del servidor, así que el archivo viaja adjunto en el PDF).
+func replaceAttachments(h string) string {
+	return reAttachmentLink.ReplaceAllStringFunc(h, func(m string) string {
+		sm := reAttachmentLink.FindStringSubmatch(m)
+		rel := stdhtml.UnescapeString(sm[1])
+		if u, err := url.PathUnescape(rel); err == nil {
+			rel = u
+		}
+		if !Attachable(rel) {
+			return `<span class="md-attachment">` + sm[2] + `</span>`
+		}
+		return `<span class="md-attachment">` + sm[2] + `</span> <span class="md-attachment-note">(adjunto: ` +
+			stdhtml.EscapeString(AttachmentName(rel)) + `)</span>`
+	})
+}
+
+// MaxAttachmentSize es el tamaño máximo de un archivo adjunto al PDF.
+const MaxAttachmentSize = 25 << 20
+
+// Attachable indica si el archivo existe y cabe como adjunto del PDF.
+func Attachable(rel string) bool {
+	st, err := os.Stat(filepath.FromSlash(rel))
+	return err == nil && !st.IsDir() && st.Size() <= MaxAttachmentSize
+}
+
+// AttachmentName es el nombre con que un archivo se adjunta al PDF.
+func AttachmentName(rel string) string { return path.Base(rel) }
+
+// LocalFile indica si dest (un enlace dentro de d) apunta a un archivo
+// descargable del proyecto: relativo, que no sea un .md, ni un ancla, ni
+// salga de la carpeta del proyecto. Devuelve la ruta relativa al proyecto.
+func LocalFile(dest string, d *Doc) (string, bool) {
+	if isExternal(dest) || strings.HasPrefix(dest, "#") || strings.HasPrefix(dest, "/") || strings.HasPrefix(dest, "data:") {
+		return "", false
+	}
+	p, _, _ := strings.Cut(dest, "#")
+	p, _, _ = strings.Cut(p, "?")
+	if u, err := url.PathUnescape(p); err == nil {
+		p = u
+	}
+	p = toSlash(p)
+	if p == "" || strings.HasSuffix(p, "/") || strings.HasSuffix(strings.ToLower(p), ".md") {
+		return "", false
+	}
+	base := "."
+	if d != nil {
+		base = path.Dir(toSlash(d.File))
+	}
+	rel := path.Clean(path.Join(base, p))
+	if !InsideProject(rel) || hiddenSegment(rel) {
+		return "", false
+	}
+	return rel, true
+}
+
+// hiddenSegment indica si algún tramo de la ruta empieza con "." (.env, .git/…).
+func hiddenSegment(rel string) bool {
+	for _, s := range strings.Split(rel, "/") {
+		if strings.HasPrefix(s, ".") {
+			return true
+		}
+	}
+	return false
+}
+
+// HiddenPath es hiddenSegment para otros paquetes.
+func HiddenPath(rel string) bool { return hiddenSegment(toSlash(rel)) }
+
+func contains(list []string, s string) bool {
+	for _, v := range list {
+		if v == s {
+			return true
+		}
+	}
+	return false
 }
 
 // reTOCMarker encuentra un párrafo que solo contiene [TOC] (o [[TOC]],

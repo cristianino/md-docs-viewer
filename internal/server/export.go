@@ -1,8 +1,10 @@
 package server
 
 import (
+	"encoding/json"
 	"fmt"
 	"html"
+	"net/url"
 	"os"
 	"path"
 	"path/filepath"
@@ -11,6 +13,7 @@ import (
 
 	"github.com/cristianino/mdocs/assets"
 	"github.com/cristianino/mdocs/internal/brand"
+	"github.com/cristianino/mdocs/internal/docs"
 )
 
 // SiteOptions controla la exportación estática.
@@ -25,14 +28,15 @@ type SiteOptions struct {
 
 // SiteReport resume lo que se escribió.
 type SiteReport struct {
-	Out      string          `json:"out"`
-	BasePath string          `json:"basePath"`
-	Pages    int             `json:"pages"`
-	Files    int             `json:"files"`
-	PDF      string          `json:"pdf,omitempty"`
-	Drawio   string          `json:"drawio,omitempty"`
-	Diagrams []DiagramReport `json:"diagrams,omitempty"`
-	Warnings []string        `json:"warnings,omitempty"`
+	Out       string          `json:"out"`
+	BasePath  string          `json:"basePath"`
+	Pages     int             `json:"pages"`
+	Files     int             `json:"files"`
+	PDF       string          `json:"pdf,omitempty"`
+	Drawio    string          `json:"drawio,omitempty"`
+	Diagrams  []DiagramReport `json:"diagrams,omitempty"`
+	Downloads []string        `json:"downloads,omitempty"` // archivos descargables copiados
+	Warnings  []string        `json:"warnings,omitempty"`
 }
 
 var reFilesRef = regexp.MustCompile(`(?:src|href)="[^"]*?/files/([^"#?]+)"`)
@@ -158,9 +162,27 @@ func ExportSite(o SiteOptions) (*SiteReport, error) {
 	if err := write("assets/mermaid.min.js", assets.MermaidJS); err != nil {
 		return nil, err
 	}
+	searchIdx, _ := json.Marshal(BuildSearchIndex(docList))
+	if err := write("search.json", searchIdx); err != nil {
+		return nil, err
+	}
+	linked := map[string]bool{}
+	for _, f := range LinkedFiles(docList) {
+		linked[f] = true
+		if st, err := os.Stat(filepath.FromSlash(f)); err == nil && !st.IsDir() {
+			rep.Downloads = append(rep.Downloads, "files/"+f)
+		}
+	}
 	for rel := range used {
+		if u, err := url.PathUnescape(html.UnescapeString(rel)); err == nil {
+			rel = u
+		}
 		clean := path.Clean(rel)
-		if strings.HasPrefix(clean, "..") || strings.HasSuffix(strings.ToLower(clean), ".json") {
+		if strings.HasPrefix(clean, "..") || path.IsAbs(clean) || docs.HiddenPath(clean) {
+			continue
+		}
+		// los .json solo si un documento los enlaza (no la configuración)
+		if strings.HasSuffix(strings.ToLower(clean), ".json") && !linked[clean] {
 			continue
 		}
 		data, err := os.ReadFile(filepath.FromSlash(clean))
